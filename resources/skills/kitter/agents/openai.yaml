@@ -1,0 +1,6 @@
+interface:
+  display_name: "Kitter"
+  short_description: "统一管理 Skill，并按少量全局、项目优先的方式安装"
+  default_prompt: "Use $kitter to show me how to manage and install Skills with Kitter."
+policy:
+  allow_implicit_invocation: false

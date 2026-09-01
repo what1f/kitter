@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  macos-arm64:
+    name: macOS arm64
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install just
+        run: brew install just
+      - name: Verify tag matches Cargo version
+        shell: bash
+        run: |
+          crate_version="$(sed -nE 's/^version = "([^"]+)"/\1/p' Cargo.toml | head -n 1)"
+          test "$GITHUB_REF_NAME" = "v${crate_version}"
+      - name: Build and verify release package
+        run: just release
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          archive="$(find target/release -maxdepth 1 -name 'Kitter-*-macos-arm64.zip' -print -quit)"
+          test -n "$archive"
+          gh release create "$GITHUB_REF_NAME" "$archive" --verify-tag --generate-notes --title "Kitter $GITHUB_REF_NAME"
