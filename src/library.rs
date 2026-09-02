@@ -1180,7 +1180,6 @@ mod tests {
         (temp, library, home)
     }
 
-    #[cfg(unix)]
     fn fixture_skill(path: &Path, name: &str) {
         fs::create_dir_all(path).unwrap();
         fs::write(
