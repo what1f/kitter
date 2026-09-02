@@ -50,7 +50,7 @@ package: app
     mkdir -p "{{release_dir}}/assets"
     cp -R "{{root}}/assets/readme" "{{release_dir}}/assets/"
     cp "{{root}}/README.md" "{{root}}/README.zh-CN.md" "{{root}}/LICENSE" "{{root}}/THIRD_PARTY_LICENSES.md" "{{release_dir}}/"
-    (cd "{{release_dir}}" && zip -qry "{{archive}}" Kitter.app kitter README.md README.zh-CN.md assets/readme LICENSE THIRD_PARTY_LICENSES.md)
+    (cd "{{release_dir}}" && zip -qry "{{archive}}" Kitter.app README.md README.zh-CN.md assets/readme LICENSE THIRD_PARTY_LICENSES.md)
     unzip -tq "{{archive}}"
     @file "{{release_dir}}/kitter" "{{release_dir}}/kitter-desktop"
     @shasum -a 256 "{{archive}}"

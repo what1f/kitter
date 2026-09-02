@@ -42,7 +42,7 @@ Kitter is not yet signed with an Apple Developer ID. On first launch, try **Cont
 xattr -dr com.apple.quarantine /Applications/Kitter.app
 ```
 
-The release archive also contains a standalone `kitter` CLI. The desktop app, CLI, and Agent Skill can be used independently; they operate on the same local library whenever they share the same machine.
+The desktop app bundles the CLI used by its built-in Kitter Skill. Separate CLI packages for macOS, Windows, and Linux are available from [GitHub Releases](https://github.com/what1f/kitter/releases/latest), so the CLI and Agent Skill can also be used without the desktop app.
 
 ## Manage your Skills with Kitter
 
@@ -112,8 +112,8 @@ cargo run --release --locked --features desktop --bin kitter-desktop
 
 ## Platform status
 
-- **macOS** — available first as a desktop application and standalone CLI.
-- **Windows and Linux** — coming soon. Kitter is designed on GPUI's native Windows and Linux backends; release builds still need validation on those systems.
+- **macOS** — desktop application and standalone CLI.
+- **Windows and Linux** — standalone CLI available now; desktop applications are coming soon. Kitter uses GPUI's native Windows and Linux backends, but those desktop builds still need validation on real systems.
 
 ## Local data
 

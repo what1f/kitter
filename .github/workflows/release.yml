@@ -23,13 +23,110 @@ jobs:
         run: |
           crate_version="$(sed -nE 's/^version = "([^"]+)"/\1/p' Cargo.toml | head -n 1)"
           test "$GITHUB_REF_NAME" = "v${crate_version}"
-      - name: Build and verify release package
+      - name: Build and verify desktop package
         run: just release
+      - name: Package standalone CLI
+        shell: bash
+        run: |
+          crate_version="${GITHUB_REF_NAME#v}"
+          package_dir="target/release/kitter-cli-macos-arm64"
+          archive="target/release/Kitter-${crate_version}-cli-macos-arm64.tar.gz"
+          mkdir -p "$package_dir"
+          cp target/release/kitter LICENSE THIRD_PARTY_LICENSES.md "$package_dir/"
+          tar -czf "$archive" -C "$package_dir" .
+          tar -tzf "$archive"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-arm64
+          path: |
+            target/release/Kitter-*-macos-arm64.zip
+            target/release/Kitter-*-cli-macos-arm64.tar.gz
+          if-no-files-found: error
+
+  linux-x86-64:
+    name: Linux x86_64 CLI
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify tag matches Cargo version
+        shell: bash
+        run: |
+          crate_version="$(sed -nE 's/^version = "([^"]+)"/\1/p' Cargo.toml | head -n 1)"
+          test "$GITHUB_REF_NAME" = "v${crate_version}"
+      - name: Build standalone CLI
+        run: cargo build --release --locked --bin kitter
+      - name: Package standalone CLI
+        shell: bash
+        run: |
+          crate_version="${GITHUB_REF_NAME#v}"
+          package_dir="target/release/kitter-cli-linux-x86_64"
+          archive="target/release/Kitter-${crate_version}-cli-linux-x86_64.tar.gz"
+          mkdir -p "$package_dir"
+          cp target/release/kitter LICENSE THIRD_PARTY_LICENSES.md "$package_dir/"
+          tar -czf "$archive" -C "$package_dir" .
+          tar -tzf "$archive"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-x86-64
+          path: target/release/Kitter-*-cli-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+  windows-x86-64:
+    name: Windows x86_64 CLI
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify tag matches Cargo version
+        shell: pwsh
+        run: |
+          $manifest = Get-Content Cargo.toml -Raw
+          $crateVersion = [regex]::Match($manifest, '(?m)^version = "([^"]+)"').Groups[1].Value
+          if ($env:GITHUB_REF_NAME -ne "v$crateVersion") {
+            throw "Tag $env:GITHUB_REF_NAME does not match Cargo version $crateVersion"
+          }
+      - name: Build standalone CLI
+        run: cargo build --release --locked --bin kitter
+      - name: Package standalone CLI
+        shell: pwsh
+        run: |
+          $crateVersion = ($env:GITHUB_REF_NAME).TrimStart('v')
+          $packageDir = "target/release/kitter-cli-windows-x86_64"
+          $archive = "target/release/Kitter-$crateVersion-cli-windows-x86_64.zip"
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+          Copy-Item target/release/kitter.exe, LICENSE, THIRD_PARTY_LICENSES.md -Destination $packageDir
+          Compress-Archive -Path "$packageDir/*" -DestinationPath $archive -Force
+          if (-not (Test-Path $archive)) {
+            throw "CLI archive was not created"
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x86-64
+          path: target/release/Kitter-*-cli-windows-x86_64.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: [macos-arm64, linux-x86-64, windows-x86-64]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          archive="$(find target/release -maxdepth 1 -name 'Kitter-*-macos-arm64.zip' -print -quit)"
-          test -n "$archive"
-          gh release create "$GITHUB_REF_NAME" "$archive" --verify-tag --generate-notes --title "Kitter $GITHUB_REF_NAME"
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 4
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --generate-notes \
+            --title "Kitter $GITHUB_REF_NAME"

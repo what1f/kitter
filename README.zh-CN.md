@@ -42,7 +42,7 @@ Kitter 暂时没有 Apple Developer ID 签名。首次启动时，请先在 Find
 xattr -dr com.apple.quarantine /Applications/Kitter.app
 ```
 
-Release 压缩包也包含独立的 `kitter` CLI。桌面应用、CLI 和 Agent Skill 可以分别使用；在同一台机器上时，它们会操作同一套本地 Skill 仓库。
+桌面应用内置了供 Kitter Skill 使用的 CLI。GitHub Release 另行提供 macOS、Windows 和 Linux 的独立 CLI 包，因此不安装桌面应用也可以单独使用 CLI 和 Agent Skill。
 
 ## 使用 Kitter 管理 Skill
 
@@ -112,8 +112,8 @@ cargo run --release --locked --features desktop --bin kitter-desktop
 
 ## 平台状态
 
-- **macOS**——首发提供桌面应用和独立 CLI。
-- **Windows 与 Linux**——即将支持。Kitter 基于 GPUI 的原生 Windows 和 Linux 后端设计，但发布构建仍需在这些系统上完成验证。
+- **macOS**——提供桌面应用和独立 CLI。
+- **Windows 与 Linux**——现已提供独立 CLI，桌面应用即将支持。Kitter 使用 GPUI 的原生 Windows 和 Linux 后端，但桌面构建仍需在真实系统中完成验证。
 
 ## 本地数据
 
