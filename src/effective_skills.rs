@@ -3886,10 +3886,15 @@ mod tests {
         .unwrap();
         fs::write(
             home.join(".claude/plugins/installed_plugins.json"),
-            format!(
-                r#"{{"plugins":{{"deployer@market":[{{"scope":"user","installPath":"{}"}}]}}}}"#,
-                plugin_root.display()
-            ),
+            serde_json::json!({
+                "plugins": {
+                    "deployer@market": [{
+                        "scope": "user",
+                        "installPath": plugin_root,
+                    }],
+                },
+            })
+            .to_string(),
         )
         .unwrap();
         fs::write(
