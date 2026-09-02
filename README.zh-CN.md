@@ -34,7 +34,7 @@ Kitter 还会估算每个 Agent 自动载入的 Skill 元数据 token。上下�
 
 ## 安装 Kitter
 
-[下载最新 macOS 版本](https://github.com/what1f/kitter/releases/latest)，解压后将 `Kitter.app` 移到 `/Applications`。
+[下载最新 macOS 版本](https://github.com/what1f/kitter/releases/latest)，打开 DMG 后将 `Kitter.app` 拖入 `Applications`。
 
 Kitter 暂时没有 Apple Developer ID 签名。首次启动时，请先在 Finder 中 **按住 Control 点按 → 打开**。如果 macOS 仍然阻止运行，请确认应用来自 Kitter 官方 Release，再只移除它的隔离属性：
 

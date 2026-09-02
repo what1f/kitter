@@ -16,6 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v6
       - name: Install just
         run: brew install just
       - name: Verify tag matches Cargo version
@@ -39,24 +40,47 @@ jobs:
         with:
           name: release-macos-arm64
           path: |
-            target/release/Kitter-*-macos-arm64.zip
+            target/release/Kitter-*-macos-arm64.dmg
             target/release/Kitter-*-cli-macos-arm64.tar.gz
           if-no-files-found: error
 
   linux-x86-64:
-    name: Linux x86_64 CLI
+    name: Linux x86_64
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libfontconfig-dev \
+            libwayland-dev \
+            libx11-xcb-dev \
+            libxkbcommon-x11-dev \
+            libvulkan-dev
       - name: Verify tag matches Cargo version
         shell: bash
         run: |
           crate_version="$(sed -nE 's/^version = "([^"]+)"/\1/p' Cargo.toml | head -n 1)"
           test "$GITHUB_REF_NAME" = "v${crate_version}"
-      - name: Build standalone CLI
-        run: cargo build --release --locked --bin kitter
+      - name: Build desktop app and standalone CLI
+        run: cargo build --release --locked --features desktop --bin kitter-desktop --bin kitter
+      - name: Package desktop app
+        shell: bash
+        run: |
+          crate_version="${GITHUB_REF_NAME#v}"
+          package_dir="target/release/kitter-desktop-linux-x86_64/Kitter"
+          archive="target/release/Kitter-${crate_version}-desktop-linux-x86_64.tar.gz"
+          mkdir -p "$package_dir/resources/kitter-skill/bin"
+          cp target/release/kitter-desktop "$package_dir/Kitter"
+          cp target/release/kitter "$package_dir/resources/kitter-skill/bin/kitter"
+          cp assets/app-icon.png "$package_dir/Kitter.png"
+          cp README.md README.zh-CN.md LICENSE THIRD_PARTY_LICENSES.md "$package_dir/"
+          chmod +x "$package_dir/Kitter" "$package_dir/resources/kitter-skill/bin/kitter"
+          tar -czf "$archive" -C "$(dirname "$package_dir")" Kitter
+          tar -tzf "$archive"
       - name: Package standalone CLI
         shell: bash
         run: |
@@ -70,11 +94,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: release-linux-x86-64
-          path: target/release/Kitter-*-cli-linux-x86_64.tar.gz
+          path: |
+            target/release/Kitter-*-desktop-linux-x86_64.tar.gz
+            target/release/Kitter-*-cli-linux-x86_64.tar.gz
           if-no-files-found: error
 
   windows-x86-64:
-    name: Windows x86_64 CLI
+    name: Windows x86_64
     runs-on: windows-latest
 
     steps:
@@ -88,8 +114,23 @@ jobs:
           if ($env:GITHUB_REF_NAME -ne "v$crateVersion") {
             throw "Tag $env:GITHUB_REF_NAME does not match Cargo version $crateVersion"
           }
-      - name: Build standalone CLI
-        run: cargo build --release --locked --bin kitter
+      - name: Build desktop app and standalone CLI
+        run: cargo build --release --locked --features desktop --bin kitter-desktop --bin kitter
+      - name: Package desktop app
+        shell: pwsh
+        run: |
+          $crateVersion = ($env:GITHUB_REF_NAME).TrimStart('v')
+          $packageDir = "target/release/kitter-desktop-windows-x86_64/Kitter"
+          $archive = "target/release/Kitter-$crateVersion-desktop-windows-x86_64.zip"
+          New-Item -ItemType Directory -Force -Path "$packageDir/resources/kitter-skill/bin" | Out-Null
+          Copy-Item target/release/kitter-desktop.exe "$packageDir/Kitter.exe"
+          Copy-Item target/release/kitter.exe "$packageDir/resources/kitter-skill/bin/kitter.exe"
+          Copy-Item assets/app-icon.png "$packageDir/Kitter.png"
+          Copy-Item README.md, README.zh-CN.md, LICENSE, THIRD_PARTY_LICENSES.md -Destination $packageDir
+          Compress-Archive -Path $packageDir -DestinationPath $archive -Force
+          if (-not (Test-Path $archive)) {
+            throw "Desktop archive was not created"
+          }
       - name: Package standalone CLI
         shell: pwsh
         run: |
@@ -105,7 +146,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: release-windows-x86-64
-          path: target/release/Kitter-*-cli-windows-x86_64.zip
+          path: |
+            target/release/Kitter-*-desktop-windows-x86_64.zip
+            target/release/Kitter-*-cli-windows-x86_64.zip
           if-no-files-found: error
 
   publish:
@@ -124,7 +167,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 4
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 6
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \

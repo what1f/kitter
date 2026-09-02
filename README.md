@@ -34,7 +34,7 @@ Kitter also estimates the automatically loaded Skill metadata for each Agent. Th
 
 ## Install Kitter
 
-[Download the latest macOS release](https://github.com/what1f/kitter/releases/latest), unzip it, and move `Kitter.app` to `/Applications`.
+[Download the latest macOS release](https://github.com/what1f/kitter/releases/latest), open the DMG, and drag `Kitter.app` into `Applications`.
 
 Kitter is not yet signed with an Apple Developer ID. On first launch, try **Control-click → Open** in Finder. If macOS still blocks the app, remove only its quarantine attribute after confirming that it came from the official Kitter release:
 

@@ -4,9 +4,10 @@ root := justfile_directory()
 release_dir := root + "/target/release"
 app_dir := release_dir + "/Kitter.app"
 icon_source := root + "/assets/app-icon.png"
+dmg_background := root + "/assets/dmg/background.png"
 version := `sed -nE 's/^version = "([^"]+)"/\1/p' Cargo.toml | head -n 1`
 architecture := `uname -m`
-archive := release_dir + "/Kitter-" + version + "-macos-" + architecture + ".zip"
+dmg := release_dir + "/Kitter-" + version + "-macos-" + architecture + ".dmg"
 
 default:
     @just --list
@@ -45,19 +46,13 @@ app: build
     @echo "App ready: {{app_dir}}"
 
 package: app
-    rm -f "{{archive}}"
-    rm -rf "{{release_dir}}/assets/readme"
-    mkdir -p "{{release_dir}}/assets"
-    cp -R "{{root}}/assets/readme" "{{release_dir}}/assets/"
-    cp "{{root}}/README.md" "{{root}}/README.zh-CN.md" "{{root}}/LICENSE" "{{root}}/THIRD_PARTY_LICENSES.md" "{{release_dir}}/"
-    (cd "{{release_dir}}" && zip -qry "{{archive}}" Kitter.app README.md README.zh-CN.md assets/readme LICENSE THIRD_PARTY_LICENSES.md)
-    unzip -tq "{{archive}}"
+    "{{root}}/scripts/package-macos-dmg.sh" "{{app_dir}}" "{{dmg_background}}" "{{dmg}}"
     @file "{{release_dir}}/kitter" "{{release_dir}}/kitter-desktop"
-    @shasum -a 256 "{{archive}}"
-    @echo "Package ready: {{archive}}"
+    @shasum -a 256 "{{dmg}}"
+    @echo "Package ready: {{dmg}}"
 
 run: app
     open "{{app_dir}}"
 
 release: check package
-    @echo "Release ready: {{archive}}"
+    @echo "Release ready: {{dmg}}"

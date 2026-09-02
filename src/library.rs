@@ -914,13 +914,20 @@ fn bundled_cli_source() -> Option<PathBuf> {
     }
 
     let executable_dir = executable.parent()?;
-    let packaged = executable_dir.parent().map(|contents| {
+    let macos_packaged = executable_dir.parent().map(|contents| {
         contents
             .join("Resources/kitter-skill/bin")
             .join(binary_name)
     });
-    if packaged.as_ref().is_some_and(|path| path.is_file()) {
-        return packaged;
+    if macos_packaged.as_ref().is_some_and(|path| path.is_file()) {
+        return macos_packaged;
+    }
+
+    let packaged = executable_dir
+        .join("resources/kitter-skill/bin")
+        .join(binary_name);
+    if packaged.is_file() {
+        return Some(packaged);
     }
 
     let sibling = executable_dir.join(binary_name);

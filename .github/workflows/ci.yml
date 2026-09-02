@@ -17,6 +17,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux desktop build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libfontconfig-dev \
+            libwayland-dev \
+            libx11-xcb-dev \
+            libxkbcommon-x11-dev \
+            libvulkan-dev
       - name: Verify Apache tracing shim
         if: runner.os == 'Linux'
         shell: bash
@@ -29,3 +39,5 @@ jobs:
           fi
       - name: Test core and directory-link behavior
         run: cargo test --locked
+      - name: Check desktop app
+        run: cargo check --locked --features desktop --bin kitter-desktop
