@@ -73,12 +73,11 @@ jobs:
           crate_version="${GITHUB_REF_NAME#v}"
           package_dir="target/release/kitter-desktop-linux-x86_64/Kitter"
           archive="target/release/Kitter-${crate_version}-desktop-linux-x86_64.tar.gz"
-          mkdir -p "$package_dir/resources/kitter-skill/bin"
+          mkdir -p "$package_dir"
           cp target/release/kitter-desktop "$package_dir/Kitter"
-          cp target/release/kitter "$package_dir/resources/kitter-skill/bin/kitter"
           cp assets/app-icon.png "$package_dir/Kitter.png"
           cp README.md README.zh-CN.md LICENSE THIRD_PARTY_LICENSES.md "$package_dir/"
-          chmod +x "$package_dir/Kitter" "$package_dir/resources/kitter-skill/bin/kitter"
+          chmod +x "$package_dir/Kitter"
           tar -czf "$archive" -C "$(dirname "$package_dir")" Kitter
           tar -tzf "$archive"
       - name: Package standalone CLI
@@ -116,13 +115,6 @@ jobs:
           }
       - name: Build desktop app and standalone CLI
         run: cargo build --release --locked --features desktop --bin kitter-desktop --bin kitter
-      - name: Verify desktop executable also provides the CLI
-        shell: pwsh
-        run: |
-          $help = & target/release/kitter-desktop.exe --help | Out-String
-          if ($LASTEXITCODE -ne 0 -or $help -notmatch "Manage Agent Skills across projects") {
-            throw "Desktop executable did not expose the Kitter CLI"
-          }
       - name: Package desktop app
         shell: pwsh
         run: |

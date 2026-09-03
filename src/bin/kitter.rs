@@ -380,10 +380,6 @@ struct TagOutput {
 }
 
 fn main() {
-    main_entry();
-}
-
-pub(crate) fn main_entry() {
     if let Err(error) = run() {
         eprintln!("error: {error:#}");
         std::process::exit(1);

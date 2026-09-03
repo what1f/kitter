@@ -42,7 +42,7 @@ Kitter 暂时没有 Apple Developer ID 签名。首次启动时，请先在 Find
 xattr -dr com.apple.quarantine /Applications/Kitter.app
 ```
 
-桌面应用内置了供 Kitter Skill 使用的 CLI。GitHub Release 另行提供 macOS、Windows 和 Linux 的独立 CLI 包，因此不安装桌面应用也可以单独使用 CLI 和 Agent Skill。
+桌面应用和 CLI 共用同一套核心，但作为两个独立产物发布。GitHub Release 提供 macOS、Windows 和 Linux 的独立 CLI 包；内置 Kitter Skill 会查找这个独立 CLI，并在缺失时引导你下载。
 
 ## 使用 Kitter 管理 Skill
 
@@ -97,7 +97,7 @@ kitter update skill-a
 npx skills add what1f/kitter --skill kitter
 ```
 
-这个 Skill 让 Agent 可以通过 CLI 盘点当前机器、添加或纳管 Skill 来源、为项目安装正确组合并验证结果。由桌面应用安装时，它使用随包附带的 CLI；独立安装时，它使用 `PATH` 中的 `kitter` 命令，缺少 CLI 时也会引导你从官方 Release 下载。
+这个 Skill 让 Agent 可以通过独立的 `kitter` CLI 盘点当前机器、添加或纳管 Skill 来源、为项目安装正确组合并验证结果。缺少 CLI 时，它会引导你从官方 Release 下载。
 
 <details>
 <summary><strong>从源码构建</strong></summary>

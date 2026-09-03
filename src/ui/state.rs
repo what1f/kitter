@@ -65,7 +65,10 @@ pub(super) struct ProjectsState {
     pub project_search: Entity<InputState>,
     pub project_select: Entity<SelectState<Vec<ProjectChoice>>>,
     pub project_snapshots: RefCell<BTreeMap<PathBuf, Vec<ProjectSkill>>>,
+    pub project_snapshot_tasks: RefCell<BTreeMap<PathBuf, u64>>,
     pub context_estimates: RefCell<BTreeMap<PathBuf, ContextEstimateCache>>,
+    pub context_estimate_tasks: RefCell<BTreeMap<PathBuf, u64>>,
+    pub scan_generation: u64,
 }
 
 pub(super) struct AddFlowState {

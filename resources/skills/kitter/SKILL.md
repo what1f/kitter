@@ -13,17 +13,17 @@ Kitter manages Agent Skills on the current machine. Its core principle is simple
 
 ## Run the CLI
 
-This Skill works with either the CLI bundled by the Kitter desktop app or a separately installed standalone CLI.
+The desktop app and CLI are separate release artifacts. This Skill uses the standalone CLI; the desktop app does not contain or install it.
 
 Before doing any work, resolve the executable in this order:
 
-1. Use `bin/kitter` relative to this file on macOS or Linux, or `bin/kitter.exe` on Windows, when that file exists.
-2. Otherwise resolve `kitter` from `PATH` (`Get-Command kitter` on Windows), and convert the result to an absolute path.
+1. Resolve `kitter` from `PATH` (`Get-Command kitter` on Windows), and convert the result to an absolute path.
+2. If it is not on `PATH`, check the supported per-user install location: `~/.local/bin/kitter` on macOS or Linux, or `%LOCALAPPDATA%\Kitter\bin\kitter.exe` on Windows.
 3. Run the resolved executable with `--help` and confirm that it is the Kitter Skill manager.
 
 The examples below use `kitter` for readability; when executing them, always use the absolute path you resolved.
 
-If neither executable exists, read [references/install-cli.md](references/install-cli.md). Explain that the Skill needs the standalone CLI, then offer the supported installation path for the current platform. Download or install it only after the user agrees. Do not search download folders, install unrelated package managers, or modify shell profiles.
+If the executable does not exist, read [references/install-cli.md](references/install-cli.md). Explain that the Skill needs the standalone CLI, then offer the supported installation path for the current platform. Download or install it only after the user agrees. Do not search download folders, install unrelated package managers, or modify shell profiles.
 
 ```text
 Local folders / GitHub / skills.sh / existing installations
