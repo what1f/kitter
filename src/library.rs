@@ -913,6 +913,12 @@ fn bundled_cli_source() -> Option<PathBuf> {
         return Some(executable);
     }
 
+    // The Windows desktop executable also hosts the CLI. Keeping one binary
+    // lets the built-in Skill install a CLI copy without shipping a sidecar.
+    if cfg!(target_os = "windows") && executable.is_file() {
+        return Some(executable);
+    }
+
     let executable_dir = executable.parent()?;
     let macos_packaged = executable_dir.parent().map(|contents| {
         contents
