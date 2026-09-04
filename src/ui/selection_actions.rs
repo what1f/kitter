@@ -83,14 +83,21 @@ impl KitterApp {
         &mut self,
         storage_name: String,
         modifiers: Modifiers,
+        visible_order: &[String],
         cx: &mut Context<Self>,
     ) {
-        if modifiers.secondary() {
-            self.toggle_skill_selection(storage_name, cx);
+        let primary = if modifiers.shift {
+            self.skills_view
+                .selection
+                .select_range(storage_name, visible_order)
+        } else if modifiers.secondary() {
+            self.skills_view
+                .selection
+                .toggle(storage_name, visible_order)
         } else {
-            let primary = self.skills_view.selection.select_one(storage_name);
-            self.set_detail_selection(primary);
-        }
+            self.skills_view.selection.select_one(storage_name)
+        };
+        self.set_detail_selection(primary);
         cx.notify();
     }
 

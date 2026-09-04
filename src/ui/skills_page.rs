@@ -1,10 +1,29 @@
 use super::*;
 
+fn installable_skills_by_group(
+    skills: &[SkillSummary],
+    group_ids: &HashSet<&str>,
+) -> BTreeMap<String, Vec<String>> {
+    let mut grouped = BTreeMap::<String, Vec<String>>::new();
+    for skill in skills {
+        if let Some(group_id) = skill.record.group_id.as_ref()
+            && group_ids.contains(group_id.as_str())
+        {
+            grouped
+                .entry(group_id.clone())
+                .or_default()
+                .push(skill_storage_name(skill).to_string());
+        }
+    }
+    grouped
+}
+
 impl KitterApp {
     pub(super) fn skill_list_row(
         &self,
         skill: &SkillSummary,
         nested: bool,
+        visible_order: Arc<[String]>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let p = self.palette();
@@ -70,6 +89,7 @@ impl KitterApp {
         let selection_mode = self.skills_view.selection.is_multiple();
         let context_name = storage_name.clone();
         let click_name = storage_name.clone();
+        let click_order = visible_order;
         let reveal_path = skill.path.clone();
         let checkbox_name = storage_name.clone();
         let checkbox = div()
@@ -171,7 +191,12 @@ impl KitterApp {
                 }),
             )
             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                this.select_skill_from_click(click_name.clone(), event.modifiers(), cx);
+                this.select_skill_from_click(
+                    click_name.clone(),
+                    event.modifiers(),
+                    click_order.as_ref(),
+                    cx,
+                );
             }))
             .context_menu(move |menu, _, _| {
                 let install_app = context_app.clone();
@@ -902,6 +927,8 @@ impl KitterApp {
             .iter()
             .map(|group| group.id.as_str())
             .collect::<HashSet<_>>();
+        let mut installable_group_skills =
+            installable_skills_by_group(&self.model.skills, &group_ids);
         let mut grouped = BTreeMap::<String, Vec<&SkillSummary>>::new();
         let mut pinned = Vec::new();
         let mut ungrouped = Vec::new();
@@ -957,7 +984,8 @@ impl KitterApp {
                 .map(|skill| skill_storage_name(skill).to_string()),
         );
         let selection_count = self.selected_skill_keys().len();
-        let visible_selection_order = selection_order.clone();
+        let selection_order = Arc::<[String]>::from(selection_order);
+        let visible_selection_order = Arc::clone(&selection_order);
         let mut list = div()
             .w_full()
             .min_w_0()
@@ -1049,7 +1077,10 @@ impl KitterApp {
                                 .hover(move |button| button.text_color(p.text))
                                 .child(self.tr("全选", "All"))
                                 .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.select_all_visible_skills(&visible_selection_order, cx);
+                                    this.select_all_visible_skills(
+                                        visible_selection_order.as_ref(),
+                                        cx,
+                                    );
                                 })),
                         )
                         .child(
@@ -1073,7 +1104,7 @@ impl KitterApp {
             .pb(px(8.))
             .overflow_y_scroll();
         for skill in pinned {
-            rows = rows.child(self.skill_list_row(skill, false, cx));
+            rows = rows.child(self.skill_list_row(skill, false, Arc::clone(&selection_order), cx));
         }
         for group in configured_groups {
             let group_id = group.id.clone();
@@ -1089,6 +1120,15 @@ impl KitterApp {
             let rename_group_id = group_id.clone();
             let delete_group_id = group_id.clone();
             let delete_group_menu_color = p.danger;
+            let install_group_skills = installable_group_skills
+                .remove(&group_id)
+                .unwrap_or_default();
+            let install_group_count = install_group_skills.len();
+            let install_group_label = if self.uses_english() {
+                format!("Install {install_group_count} Skills")
+            } else {
+                format!("安装分组内 {install_group_count} 个技能")
+            };
             rows = rows.child(
                 div()
                     .id(ElementId::Name(format!("skill-group-{group_id}").into()))
@@ -1139,8 +1179,10 @@ impl KitterApp {
                         cx.notify();
                     }))
                     .context_menu(move |menu, _, _| {
+                        let install_app = context_app.clone();
                         let rename_app = context_app.clone();
                         let delete_app = context_app.clone();
+                        let install_group_skills = install_group_skills.clone();
                         let rename_group_id = rename_group_id.clone();
                         let delete_group_id = delete_group_id.clone();
                         let delete_menu_item =
@@ -1151,7 +1193,23 @@ impl KitterApp {
                                     });
                                 },
                             );
-                        menu.min_w(px(170.))
+                        menu.min_w(px(190.))
+                            .when(!install_group_skills.is_empty(), |menu| {
+                                menu.item(
+                                    PopupMenuItem::new(install_group_label.clone())
+                                        .icon(Icon::default().path("icons/download.svg"))
+                                        .on_click(move |_, window, cx| {
+                                            let _ = install_app.update(cx, |this, cx| {
+                                                let primary = this
+                                                    .skills_view
+                                                    .selection
+                                                    .select_all(&install_group_skills);
+                                                this.set_detail_selection(primary);
+                                                this.open_install_dialog(window, cx);
+                                            });
+                                        }),
+                                )
+                            })
                             .item(
                                 PopupMenuItem::new("重命名")
                                     .icon(Icon::default().path("icons/pencil.svg"))
@@ -1173,11 +1231,12 @@ impl KitterApp {
                 continue;
             }
             for skill in skills {
-                rows = rows.child(self.skill_list_row(skill, true, cx));
+                rows =
+                    rows.child(self.skill_list_row(skill, true, Arc::clone(&selection_order), cx));
             }
         }
         for skill in ungrouped {
-            rows = rows.child(self.skill_list_row(skill, false, cx));
+            rows = rows.child(self.skill_list_row(skill, false, Arc::clone(&selection_order), cx));
         }
         list = list.child(rows);
         layout::content(
@@ -2244,5 +2303,44 @@ impl KitterApp {
                     .child(self.selectable_text("content-preview", 201, content, window, cx)),
             );
         div().flex_1().min_h_0().flex().child(tree).child(preview)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::installable_skills_by_group;
+    use crate::{SkillOrigin, SkillRecord, SkillSummary};
+    use std::{collections::HashSet, path::PathBuf};
+
+    fn skill(name: &str, group_id: Option<&str>) -> SkillSummary {
+        SkillSummary {
+            record: SkillRecord {
+                name: name.into(),
+                storage_name: format!("storage-{name}"),
+                description: String::new(),
+                origin: SkillOrigin::Unknown,
+                update_available: false,
+                group_id: group_id.map(str::to_string),
+                last_operated_at: 0,
+            },
+            path: PathBuf::new(),
+            installed_projects: 0,
+            manual_only: false,
+        }
+    }
+
+    #[test]
+    fn group_installation_uses_every_library_skill_in_the_group() {
+        let skills = vec![
+            skill("visible", Some("group-a")),
+            skill("filtered-out", Some("group-a")),
+            skill("other", Some("group-b")),
+        ];
+        let groups = HashSet::from(["group-a"]);
+
+        assert_eq!(
+            installable_skills_by_group(&skills, &groups)["group-a"],
+            ["storage-visible", "storage-filtered-out"]
+        );
     }
 }

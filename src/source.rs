@@ -102,7 +102,7 @@ impl SkillScan {
         let SkillScan {
             origin,
             skills,
-            _temp: _,
+            _temp: scan_temp,
         } = self;
         let discovered_skills = skills
             .iter()
@@ -110,10 +110,10 @@ impl SkillScan {
             .collect::<Vec<_>>();
         let mut added_skills = Vec::new();
         let mut skipped = 0;
-        let group_id = group_name
+        let group_name = group_name
             .filter(|name| !name.trim().is_empty())
-            .map(|name| library.ensure_group(name))
-            .transpose()?;
+            .map(str::to_string);
+        let mut group_id = None;
         for skill in skills
             .into_iter()
             .filter(|skill| selected.contains(&skill.name))
@@ -150,12 +150,16 @@ impl SkillScan {
                     // Re-running `--skill *` can abort on its own duplicates
                     // before Kitter gets a chance to skip them.
                     ensure_npx_skill(workspace, repository, &skill.name)?;
+                    let scan_workspace = scan_temp
+                        .as_ref()
+                        .map(TempDir::path)
+                        .context("Npx 扫描结果不可用，请重新扫描")?;
                     (
-                        npx_skill_path(workspace, &skill.name),
+                        skill.path.clone(),
                         SkillOrigin::Npx {
                             repository: repository.clone(),
                             skill: skill.name.clone(),
-                            source_hash: npx_lock_hash(workspace, &skill.name)?,
+                            source_hash: npx_lock_hash(scan_workspace, &skill.name)?,
                         },
                     )
                 }
@@ -174,6 +178,11 @@ impl SkillScan {
                     },
                 ),
             };
+            if group_id.is_none()
+                && let Some(group_name) = group_name.as_deref()
+            {
+                group_id = Some(library.ensure_group(group_name)?);
+            }
             let name = skill.name.clone();
             library.import(
                 &source_path,
@@ -871,5 +880,88 @@ mod tests {
             .collect::<HashSet<_>>();
         assert!(names.contains("alpha"));
         assert!(names.contains("beta"));
+    }
+
+    #[test]
+    fn skipped_batch_does_not_create_an_empty_group() {
+        let temp = tempfile::tempdir().unwrap();
+        let source_root = temp.path().join("source");
+        write_skill(&source_root.join("alpha"), "alpha");
+        let mut library = SkillLibrary::open_in(temp.path().join("data")).unwrap();
+        let selected = HashSet::from(["alpha".to_string()]);
+
+        scan_local(&source_root)
+            .unwrap()
+            .import_selected(&mut library, &selected, None)
+            .unwrap();
+        let summary = scan_local(&source_root)
+            .unwrap()
+            .import_selected(&mut library, &selected, Some("owner/repository"))
+            .unwrap();
+
+        assert_eq!(
+            summary,
+            ImportSummary {
+                added: 0,
+                skipped: 1,
+            }
+        );
+        assert!(library.groups().is_empty());
+    }
+
+    #[test]
+    fn npx_import_uses_the_fresh_scan_instead_of_a_stale_workspace() {
+        let temp = tempfile::tempdir().unwrap();
+        let scan_temp = tempfile::tempdir().unwrap();
+        let scanned_skill = scan_temp.path().join(".agents/skills/alpha");
+        fs::create_dir_all(scan_temp.path().join(".agents")).unwrap();
+        fs::create_dir_all(&scanned_skill).unwrap();
+        fs::write(
+            scanned_skill.join("SKILL.md"),
+            "---\nname: alpha\ndescription: fresh\n---\nfresh scan\n",
+        )
+        .unwrap();
+        fs::write(
+            scan_temp.path().join(".agents/.skill-lock.json"),
+            r#"{"skills":{"alpha":{"skillFolderHash":"fresh-hash"}}}"#,
+        )
+        .unwrap();
+
+        let workspace = temp.path().join("npx-workspace");
+        let cached_skill = npx_skill_path(&workspace, "alpha");
+        fs::create_dir_all(workspace.join(".agents")).unwrap();
+        write_skill(&cached_skill, "alpha");
+        fs::write(
+            workspace.join(".agents/.skill-lock.json"),
+            r#"{"skills":{}}"#,
+        )
+        .unwrap();
+
+        let scan = SkillScan {
+            origin: ScanOrigin::Npx {
+                repository: "owner/repository".into(),
+                workspace,
+            },
+            skills: vec![ScannedSkill {
+                name: "alpha".into(),
+                description: "fresh".into(),
+                path: scanned_skill,
+            }],
+            _temp: Some(scan_temp),
+        };
+        let mut library = SkillLibrary::open_in(temp.path().join("data")).unwrap();
+        scan.import_selected(&mut library, &HashSet::from(["alpha".to_string()]), None)
+            .unwrap();
+
+        let content =
+            fs::read_to_string(library.skill_path("alpha").unwrap().join("SKILL.md")).unwrap();
+        assert!(content.contains("fresh scan"));
+        assert!(matches!(
+            library.record("alpha").unwrap().origin,
+            SkillOrigin::Npx {
+                source_hash: Some(hash),
+                ..
+            } if hash == "fresh-hash"
+        ));
     }
 }

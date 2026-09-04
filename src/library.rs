@@ -909,9 +909,6 @@ fn normalize_group_name(name: &str) -> Result<String> {
     if name.is_empty() {
         bail!("请输入分组名称");
     }
-    if name.contains('/') || name.contains('\\') {
-        bail!("分组名称不能包含路径分隔符");
-    }
     Ok(name.to_string())
 }
 
@@ -1385,5 +1382,19 @@ mod tests {
 
         let json = serde_json::to_string(&library.list().unwrap()[0].record).unwrap();
         assert!(!json.contains("description"));
+    }
+
+    #[test]
+    fn group_names_preserve_source_style_separators() {
+        let temp = tempfile::tempdir().unwrap();
+        let data_dir = temp.path().join("data");
+        let mut library = SkillLibrary::open_in(&data_dir).unwrap();
+
+        let group = library.create_group("owner/repository").unwrap();
+        assert_eq!(group.name, "owner/repository");
+        library.rename_group(&group.id, r"team\skills").unwrap();
+
+        let reopened = SkillLibrary::open_in(data_dir).unwrap();
+        assert_eq!(reopened.groups()[0].name, r"team\skills");
     }
 }

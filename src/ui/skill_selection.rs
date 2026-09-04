@@ -7,6 +7,7 @@ use std::collections::HashSet;
 /// actions from implementing slightly different reconciliation rules.
 pub(super) struct SkillSelection {
     primary: Option<String>,
+    anchor: Option<String>,
     multiple: bool,
     keys: HashSet<String>,
 }
@@ -15,6 +16,7 @@ impl SkillSelection {
     pub(super) fn new(primary: Option<String>) -> Self {
         let keys = primary.iter().cloned().collect();
         Self {
+            anchor: primary.clone(),
             primary,
             multiple: false,
             keys,
@@ -81,6 +83,13 @@ impl SkillSelection {
                 .or_else(|| order.first())
                 .cloned();
         }
+        if self
+            .anchor
+            .as_ref()
+            .is_some_and(|anchor| !existing.contains(anchor))
+        {
+            self.anchor = self.primary.clone();
+        }
         if self.keys.is_empty()
             && let Some(primary) = self.primary.clone()
         {
@@ -98,6 +107,7 @@ impl SkillSelection {
         {
             self.primary = keys.first().cloned();
         }
+        self.anchor = self.primary.clone();
         self.primary.clone()
     }
 
@@ -126,6 +136,7 @@ impl SkillSelection {
             .cloned();
         self.multiple = false;
         self.keys = primary.iter().cloned().collect();
+        self.anchor = primary.clone();
         self.primary = primary.clone();
         primary
     }
@@ -133,6 +144,7 @@ impl SkillSelection {
     pub(super) fn clear(&mut self) {
         self.multiple = false;
         self.keys.clear();
+        self.anchor = None;
         self.primary = None;
     }
 
@@ -146,6 +158,7 @@ impl SkillSelection {
         {
             self.primary = visible.first().cloned();
         }
+        self.anchor = self.primary.clone();
         self.primary.clone()
     }
 
@@ -166,6 +179,28 @@ impl SkillSelection {
                 .find(|candidate| self.keys.contains(candidate.as_str()))
                 .cloned();
         }
+        self.anchor = Some(key);
+        self.primary.clone()
+    }
+
+    pub(super) fn select_range(&mut self, key: String, visible: &[String]) -> Option<String> {
+        let anchor = self
+            .anchor
+            .as_ref()
+            .or(self.primary.as_ref())
+            .and_then(|anchor| visible.iter().position(|candidate| candidate == anchor));
+        let target = visible.iter().position(|candidate| candidate == &key);
+        let (Some(anchor), Some(target)) = (anchor, target) else {
+            return self.select_one(key);
+        };
+        let (start, end) = if anchor <= target {
+            (anchor, target)
+        } else {
+            (target, anchor)
+        };
+        self.multiple = true;
+        self.keys = visible[start..=end].iter().cloned().collect();
+        self.primary = Some(key);
         self.primary.clone()
     }
 
@@ -173,6 +208,7 @@ impl SkillSelection {
         self.multiple = false;
         self.keys.clear();
         self.keys.insert(key.clone());
+        self.anchor = Some(key.clone());
         self.primary = Some(key);
         self.primary.clone()
     }
@@ -249,5 +285,37 @@ mod tests {
         );
         assert_eq!(selection.len(), 2);
         assert!(selection.contains("first"));
+    }
+
+    #[test]
+    fn shift_selection_uses_the_visible_order_in_both_directions() {
+        let visible = keys(&["first", "third", "fifth", "seventh"]);
+        let mut selection = SkillSelection::new(Some("third".into()));
+
+        assert_eq!(
+            selection.select_range("seventh".into(), &visible),
+            Some("seventh".into())
+        );
+        assert_eq!(
+            selection.selected_in(&visible),
+            keys(&["third", "fifth", "seventh"])
+        );
+
+        assert_eq!(
+            selection.select_range("first".into(), &visible),
+            Some("first".into())
+        );
+        assert_eq!(selection.selected_in(&visible), keys(&["first", "third"]));
+    }
+
+    #[test]
+    fn replacing_selection_resets_the_shift_anchor() {
+        let visible = keys(&["first", "second", "third", "fourth"]);
+        let mut selection = SkillSelection::new(Some("first".into()));
+
+        selection.replace(&keys(&["third"]));
+        selection.select_range("fourth".into(), &visible);
+
+        assert_eq!(selection.selected_in(&visible), keys(&["third", "fourth"]));
     }
 }
