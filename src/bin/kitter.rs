@@ -618,8 +618,11 @@ fn add_skills(library: &mut SkillLibrary, add: AddSource) -> Result<()> {
         }
         selected.into_iter().collect()
     };
-    let count = scan.import_selected(library, &selected, group.as_deref())?;
-    println!("Added {count} Skill(s)");
+    let summary = scan.import_selected(library, &selected, group.as_deref())?;
+    println!(
+        "Added {} Skill(s), skipped {} already-added Skill(s)",
+        summary.added, summary.skipped
+    );
     Ok(())
 }
 

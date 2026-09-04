@@ -39,6 +39,12 @@ pub struct SkillScan {
     _temp: Option<TempDir>,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ImportSummary {
+    pub added: usize,
+    pub skipped: usize,
+}
+
 impl SkillScan {
     pub fn skills(&self) -> &[ScannedSkill] {
         &self.skills
@@ -89,7 +95,7 @@ impl SkillScan {
         library: &mut SkillLibrary,
         selected: &HashSet<String>,
         group_name: Option<&str>,
-    ) -> Result<usize> {
+    ) -> Result<ImportSummary> {
         if selected.is_empty() {
             bail!("请至少选择一个技能");
         }
@@ -102,18 +108,8 @@ impl SkillScan {
             .iter()
             .map(|skill| skill.name.clone())
             .collect::<Vec<_>>();
-        if let ScanOrigin::Npx {
-            repository,
-            workspace,
-        } = &origin
-        {
-            // Discover from a clean temporary workspace, then keep one
-            // persistent upstream-managed workspace for the selected source.
-            // This prevents removed upstream skills from reappearing in a
-            // later scan just because they are still in the cache.
-            npx_add(workspace, repository, "*")?;
-        }
         let mut added_skills = Vec::new();
+        let mut skipped = 0;
         let group_id = group_name
             .filter(|name| !name.trim().is_empty())
             .map(|name| library.ensure_group(name))
@@ -122,18 +118,47 @@ impl SkillScan {
             .into_iter()
             .filter(|skill| selected.contains(&skill.name))
         {
+            let identity = match &origin {
+                ScanOrigin::Npx { repository, .. } => SkillOrigin::Npx {
+                    repository: repository.clone(),
+                    skill: skill.name.clone(),
+                    source_hash: None,
+                }
+                .identity_key(&skill.name),
+                ScanOrigin::Claude { plugin } => SkillOrigin::ClaudeMarketplace {
+                    plugin: plugin.clone(),
+                    skill: skill.name.clone(),
+                }
+                .identity_key(&skill.name),
+                ScanOrigin::Local { root, .. } => SkillOrigin::Local {
+                    path: skill.path.clone(),
+                    source_root: Some(root.clone()),
+                }
+                .identity_key(&skill.name),
+            };
+            if library.contains_identity(&identity) {
+                skipped += 1;
+                continue;
+            }
             let (source_path, skill_origin) = match &origin {
                 ScanOrigin::Npx {
                     repository,
                     workspace,
-                } => (
-                    npx_skill_path(workspace, &skill.name),
-                    SkillOrigin::Npx {
-                        repository: repository.clone(),
-                        skill: skill.name.clone(),
-                        source_hash: npx_lock_hash(workspace, &skill.name)?,
-                    },
-                ),
+                } => {
+                    // Keep a reusable upstream workspace, but only ask the
+                    // upstream CLI for Skills that are not already present.
+                    // Re-running `--skill *` can abort on its own duplicates
+                    // before Kitter gets a chance to skip them.
+                    ensure_npx_skill(workspace, repository, &skill.name)?;
+                    (
+                        npx_skill_path(workspace, &skill.name),
+                        SkillOrigin::Npx {
+                            repository: repository.clone(),
+                            skill: skill.name.clone(),
+                            source_hash: npx_lock_hash(workspace, &skill.name)?,
+                        },
+                    )
+                }
                 ScanOrigin::Claude { plugin } => (
                     skill.path.clone(),
                     SkillOrigin::ClaudeMarketplace {
@@ -169,9 +194,9 @@ impl SkillScan {
             ScanOrigin::Claude { plugin } => crate::SkillSource::ClaudeMarketplace { plugin },
             ScanOrigin::Local { root, .. } => crate::SkillSource::Local { path: root },
         };
-        let count = added_skills.len();
+        let added = added_skills.len();
         library.record_source(source, discovered_skills, added_skills)?;
-        Ok(count)
+        Ok(ImportSummary { added, skipped })
     }
 }
 
@@ -791,4 +816,60 @@ fn find_claude_skills(plugin: &str) -> Result<Vec<PathBuf>> {
         bail!("Claude 插件中没有找到技能");
     }
     Ok(candidates)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn write_skill(path: &Path, name: &str) {
+        fs::create_dir_all(path).unwrap();
+        fs::write(
+            path.join("SKILL.md"),
+            format!("---\nname: {name}\ndescription: fixture\n---\n"),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn local_batch_skips_existing_identity_and_imports_the_rest() {
+        let temp = tempfile::tempdir().unwrap();
+        let source_root = temp.path().join("source");
+        write_skill(&source_root.join("alpha"), "alpha");
+        let mut library = SkillLibrary::open_in(temp.path().join("data")).unwrap();
+
+        let first = scan_local(&source_root).unwrap();
+        let first_selected = HashSet::from(["alpha".to_string()]);
+        assert_eq!(
+            first
+                .import_selected(&mut library, &first_selected, None)
+                .unwrap(),
+            ImportSummary {
+                added: 1,
+                skipped: 0,
+            }
+        );
+
+        write_skill(&source_root.join("beta"), "beta");
+        let second = scan_local(&source_root).unwrap();
+        let selected = HashSet::from(["alpha".to_string(), "beta".to_string()]);
+        assert_eq!(
+            second
+                .import_selected(&mut library, &selected, None)
+                .unwrap(),
+            ImportSummary {
+                added: 1,
+                skipped: 1,
+            }
+        );
+
+        let names = library
+            .list()
+            .unwrap()
+            .into_iter()
+            .map(|skill| skill.record.name)
+            .collect::<HashSet<_>>();
+        assert!(names.contains("alpha"));
+        assert!(names.contains("beta"));
+    }
 }

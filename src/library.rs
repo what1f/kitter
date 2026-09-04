@@ -362,6 +362,13 @@ impl SkillLibrary {
         self.save()
     }
 
+    pub(crate) fn contains_identity(&self, identity: &str) -> bool {
+        self.registry
+            .skills
+            .values()
+            .any(|record| record.identity_key() == identity)
+    }
+
     /// Adopt one source and its observed links as a single recoverable operation.
     /// Source files and native plugin registries are never written here.
     pub fn adopt(

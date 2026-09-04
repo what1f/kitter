@@ -188,22 +188,38 @@ impl KitterApp {
                 .background_executor()
                 .spawn(async move {
                     let mut library = SkillLibrary::open_in(data_dir)?;
-                    let count =
+                    let summary =
                         scan.import_selected(&mut library, &selected, group_name.as_deref())?;
-                    Ok::<_, anyhow::Error>((library, count))
+                    Ok::<_, anyhow::Error>((library, summary))
                 })
                 .await;
             let _ = this.update(cx, |this, cx| {
                 this.add_flow.task = None;
                 match result {
-                    Ok((library, count)) => {
+                    Ok((library, summary)) => {
                         this.model.library = library;
                         this.add_flow.selected.clear();
                         this.close_dialog(cx);
                         let message = if this.uses_english() {
-                            format!("Added {count} Skill(s)")
+                            match (summary.added, summary.skipped) {
+                                (0, skipped) => {
+                                    format!("No new Skills added · {skipped} already added")
+                                }
+                                (added, 0) => format!("Added {added} Skill(s)"),
+                                (added, skipped) => {
+                                    format!("Added {added} Skill(s) · {skipped} already added")
+                                }
+                            }
                         } else {
-                            format!("已添加 {count} 个技能")
+                            match (summary.added, summary.skipped) {
+                                (0, skipped) => {
+                                    format!("没有新增技能，已跳过 {skipped} 个已添加技能")
+                                }
+                                (added, 0) => format!("已添加 {added} 个技能"),
+                                (added, skipped) => {
+                                    format!("已添加 {added} 个技能，跳过 {skipped} 个已添加技能")
+                                }
+                            }
                         };
                         this.show_notice(message, cx);
                         this.refresh(cx);
