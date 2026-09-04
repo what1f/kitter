@@ -393,7 +393,7 @@ impl KitterApp {
                                     format!("{count} user-level Skills")
                                 }
                                 Some(count) => format!("{count} 个用户级技能"),
-                                None => self.tr("正在后台扫描…", "Scanning in background…").into(),
+                                None => self.tr("正在扫描…", "Scanning…").into(),
                             }),
                     ),
             )
@@ -497,7 +497,7 @@ impl KitterApp {
                     .text_size(px(13.))
                     .text_color(p.muted)
                     .child(self.shell.spinner_accent.clone())
-                    .child(self.tr("正在后台扫描项目…", "Scanning project in background…"))
+                    .child(self.tr("正在扫描项目…", "Scanning project…"))
             } else {
                 self.context_estimate_panel(open_project, &estimates, cx)
             };
@@ -568,6 +568,7 @@ impl KitterApp {
                                 .collect()
                         }),
                     )
+                    .debug_selector(|| "project-skills-virtual-list".into())
                     .flex_1()
                     .min_h_0(),
                 );

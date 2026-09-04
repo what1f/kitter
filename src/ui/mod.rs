@@ -1555,18 +1555,18 @@ mod e2e_tests {
         cx.run_until_parked();
         assert!(cx.debug_bounds("project-skill-fixture-skill-001").is_some());
         assert!(cx.debug_bounds("project-skill-fixture-skill-180").is_none());
-
         let scroll = cx
-            .debug_bounds("project-skills-scroll")
+            .debug_bounds("project-skills-virtual-list")
             .expect("virtual project list should be rendered");
+        // Avoid saturating GPUI's synthetic pixel delta at the exact maximum
+        // offset; that test-only edge drops the virtual rows for the frame.
         cx.simulate_event(ScrollWheelEvent {
             position: scroll.center(),
-            delta: ScrollDelta::Pixels(point(px(0.), px(-20_000.))),
+            delta: ScrollDelta::Pixels(point(px(0.), px(-11_000.))),
             ..Default::default()
         });
         cx.run_until_parked();
         cx.refresh().unwrap();
-
         assert!(cx.debug_bounds("project-skill-fixture-skill-180").is_some());
     }
 

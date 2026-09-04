@@ -17,13 +17,24 @@ fn install_windows_panic_reporter() {
         if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(&log_path) {
             let _ = writeln!(log, "{panic}");
         }
-        let message = format!(
-            "Kitter 启动失败。\n\n错误详情已写入：\n{}\n\n{}",
-            log_path.display(),
-            panic
-        );
-        show_windows_error(&message);
+        let language = kitter::config::AppConfig::load()
+            .map(|config| config.language)
+            .unwrap_or_default();
+        show_windows_error(crash_dialog_message(language));
     }));
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn crash_dialog_message(language: kitter::config::Language) -> &'static str {
+    use kitter::config::Language;
+
+    let uses_chinese = language == Language::ZhCn
+        || (language == Language::System && Language::system() == Language::ZhCn);
+    if uses_chinese {
+        "Kitter 遇到问题。请重新打开后再试。"
+    } else {
+        "Kitter encountered a problem. Please reopen it and try again."
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -57,5 +68,27 @@ fn show_windows_error(message: &str) {
             caption.as_ptr(),
             MB_OK | MB_ICONERROR,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use kitter::config::Language;
+
+    #[test]
+    fn crash_dialog_is_localized_without_exposing_diagnostics() {
+        let chinese = super::crash_dialog_message(Language::ZhCn);
+        let english = super::crash_dialog_message(Language::En);
+
+        assert_eq!(chinese, "Kitter 遇到问题。请重新打开后再试。");
+        assert_eq!(
+            english,
+            "Kitter encountered a problem. Please reopen it and try again."
+        );
+        for message in [chinese, english] {
+            assert!(!message.contains("crash.log"));
+            assert!(!message.contains("panic"));
+            assert!(!message.contains(':'));
+        }
     }
 }
