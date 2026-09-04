@@ -26,3 +26,16 @@ uvx --from "dmgbuild==1.6.7" dmgbuild \
   "$output_path"
 
 hdiutil verify "$output_path"
+
+mount_root="$(mktemp -d "${TMPDIR:-/tmp}/kitter-dmg.XXXXXX")"
+cleanup() {
+  hdiutil detach "$mount_root" >/dev/null 2>&1 || true
+  rmdir "$mount_root" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+hdiutil attach -readonly -nobrowse -mountpoint "$mount_root" "$output_path" >/dev/null
+codesign --verify --deep --strict --verbose=2 "$mount_root/Kitter.app"
+hdiutil detach "$mount_root" >/dev/null
+rmdir "$mount_root"
+trap - EXIT

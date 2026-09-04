@@ -1,5 +1,3 @@
-import os
-
 app_path = defines["app"]
 background_path = defines["background"]
 
@@ -34,16 +32,3 @@ icon_locations = {
 }
 
 hide = [".background.tiff"]
-hide_extensions = ["Kitter.app"]
-
-
-def create_hook(mount_point, _options):
-    source = os.path.join(mount_point, ".background.tiff")
-    destination = os.path.join(
-        mount_point,
-        "Kitter.app",
-        "Contents",
-        "Resources",
-        "dmg-background.tiff",
-    )
-    os.replace(source, destination)
