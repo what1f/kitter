@@ -1,6 +1,6 @@
 # Install the standalone Kitter CLI
 
-Use this guide only when the Kitter Skill cannot find a bundled executable or a `kitter` command on `PATH`.
+Use this guide when the Kitter Skill cannot find the standalone CLI on `PATH` or in its supported per-user install location. The desktop app intentionally does not bundle the CLI.
 
 Official standalone CLI packages are published for macOS arm64, Linux x86_64, and Windows x86_64. Detect the current platform and architecture first. If there is no exact matching asset, stop and link the user to <https://github.com/what1f/kitter/releases/latest>; never substitute a binary built for another target.
 

@@ -42,7 +42,7 @@ Kitter is not yet signed with an Apple Developer ID. On first launch, try **Cont
 xattr -dr com.apple.quarantine /Applications/Kitter.app
 ```
 
-The desktop app bundles the CLI used by its built-in Kitter Skill. Separate CLI packages for macOS, Windows, and Linux are available from [GitHub Releases](https://github.com/what1f/kitter/releases/latest), so the CLI and Agent Skill can also be used without the desktop app.
+The desktop app and CLI are separate release artifacts built on the same core. Standalone CLI packages for macOS, Windows, and Linux are available from [GitHub Releases](https://github.com/what1f/kitter/releases/latest). The built-in Kitter Skill resolves that standalone CLI and guides you through downloading it when needed.
 
 ## Manage your Skills with Kitter
 
@@ -97,7 +97,7 @@ You do not need the desktop app to use Kitter. Download the standalone CLI from 
 npx skills add what1f/kitter --skill kitter
 ```
 
-The Skill lets an Agent inspect the current machine, add or adopt Skill sources, install the right project combination, and verify the result through the CLI. When installed by the desktop app it uses the bundled CLI; when installed independently it uses the standalone `kitter` command and can guide you through downloading it from an official Release when missing.
+The Skill lets an Agent inspect the current machine, add or adopt Skill sources, install the right project combination, and verify the result through the standalone `kitter` CLI. If the CLI is missing, the Skill can guide you through downloading it from an official Release.
 
 <details>
 <summary><strong>Build from source</strong></summary>

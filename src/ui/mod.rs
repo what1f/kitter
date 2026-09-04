@@ -741,7 +741,10 @@ impl KitterApp {
                 project_search,
                 project_select,
                 project_snapshots: RefCell::new(BTreeMap::new()),
+                project_snapshot_tasks: RefCell::new(BTreeMap::new()),
                 context_estimates: RefCell::new(BTreeMap::new()),
+                context_estimate_tasks: RefCell::new(BTreeMap::new()),
+                scan_generation: 0,
             },
             add_flow: AddFlowState {
                 kind: AddKind::Npx,
@@ -898,7 +901,17 @@ impl KitterApp {
 
     fn refresh(&mut self, cx: &mut Context<Self>) {
         self.model.skills = self.model.library.list().unwrap_or_default();
+        self.projects_view.scan_generation = self.projects_view.scan_generation.wrapping_add(1);
         self.projects_view.project_snapshots.borrow_mut().clear();
+        self.projects_view
+            .project_snapshot_tasks
+            .borrow_mut()
+            .clear();
+        self.projects_view.context_estimates.borrow_mut().clear();
+        self.projects_view
+            .context_estimate_tasks
+            .borrow_mut()
+            .clear();
         *self.skills_view.content_snapshot.borrow_mut() = None;
         let order = self
             .model
@@ -922,37 +935,164 @@ impl KitterApp {
         });
     }
 
-    fn project_snapshot(&self, path: &PathBuf) -> Vec<ProjectSkill> {
+    fn project_snapshot(
+        &self,
+        path: &PathBuf,
+        cx: &mut Context<Self>,
+    ) -> Option<Vec<ProjectSkill>> {
         if let Some(snapshot) = self.projects_view.project_snapshots.borrow().get(path) {
-            return snapshot.clone();
+            return Some(snapshot.clone());
         }
-        let snapshot =
-            project::list(path, &self.model.library.config.library_dir).unwrap_or_default();
-        self.projects_view
-            .project_snapshots
-            .borrow_mut()
-            .insert(path.clone(), snapshot.clone());
-        snapshot
+
+        self.request_project_snapshots(std::slice::from_ref(path), cx);
+        None
     }
 
-    fn context_estimate_snapshot(&self, path: &PathBuf) -> Vec<AgentContextEstimate> {
-        if let Some(cache) = self.projects_view.context_estimates.borrow().get(path)
-            && cache.scanned_at.elapsed() < CONTEXT_ESTIMATE_CACHE_TTL
+    fn request_project_snapshots(&self, paths: &[PathBuf], cx: &mut Context<Self>) {
+        let generation = self.projects_view.scan_generation;
+        let mut pending = Vec::new();
         {
-            return cache.estimates.clone();
+            let snapshots = self.projects_view.project_snapshots.borrow();
+            let tasks = self.projects_view.project_snapshot_tasks.borrow();
+            for path in paths {
+                if !snapshots.contains_key(path)
+                    && !tasks
+                        .get(path)
+                        .is_some_and(|running| *running == generation)
+                {
+                    pending.push(path.clone());
+                }
+            }
         }
-        let estimates = effective_skills::estimate_project(path);
-        self.projects_view.context_estimates.borrow_mut().insert(
-            path.clone(),
-            ContextEstimateCache {
-                scanned_at: Instant::now(),
-                estimates: estimates.clone(),
-            },
-        );
-        estimates
+        if pending.is_empty() {
+            return;
+        }
+        {
+            let mut tasks = self.projects_view.project_snapshot_tasks.borrow_mut();
+            for path in &pending {
+                tasks.insert(path.clone(), generation);
+            }
+        }
+
+        let library_dir = self.model.library.config.library_dir.clone();
+        cx.spawn(async move |this, cx| {
+            let snapshots = cx
+                .background_executor()
+                .spawn(async move {
+                    pending
+                        .into_iter()
+                        .map(|path| {
+                            let snapshot = project::list(&path, &library_dir).unwrap_or_default();
+                            (path, snapshot)
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                let mut changed = false;
+                for (path, snapshot) in snapshots {
+                    let is_current = this.projects_view.scan_generation == generation
+                        && this
+                            .projects_view
+                            .project_snapshot_tasks
+                            .borrow()
+                            .get(&path)
+                            .is_some_and(|running| *running == generation);
+                    if !is_current {
+                        continue;
+                    }
+                    this.projects_view
+                        .project_snapshot_tasks
+                        .borrow_mut()
+                        .remove(&path);
+                    this.projects_view
+                        .project_snapshots
+                        .borrow_mut()
+                        .insert(path, snapshot);
+                    changed = true;
+                }
+                if changed {
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
+    fn context_estimate_snapshot(
+        &self,
+        path: &PathBuf,
+        cx: &mut Context<Self>,
+    ) -> Option<Vec<AgentContextEstimate>> {
+        let cached = self
+            .projects_view
+            .context_estimates
+            .borrow()
+            .get(path)
+            .cloned();
+        if cached
+            .as_ref()
+            .is_some_and(|cache| cache.scanned_at.elapsed() < CONTEXT_ESTIMATE_CACHE_TTL)
+        {
+            return cached.map(|cache| cache.estimates);
+        }
+
+        let generation = self.projects_view.scan_generation;
+        if !self
+            .projects_view
+            .context_estimate_tasks
+            .borrow()
+            .get(path)
+            .is_some_and(|running| *running == generation)
+        {
+            self.projects_view
+                .context_estimate_tasks
+                .borrow_mut()
+                .insert(path.clone(), generation);
+            let path = path.clone();
+            cx.spawn(async move |this, cx| {
+                let worker_path = path.clone();
+                let estimates = cx
+                    .background_executor()
+                    .spawn(async move { effective_skills::estimate_project(&worker_path) })
+                    .await;
+                let _ = this.update(cx, |this, cx| {
+                    let is_current = this.projects_view.scan_generation == generation
+                        && this
+                            .projects_view
+                            .context_estimate_tasks
+                            .borrow()
+                            .get(&path)
+                            .is_some_and(|running| *running == generation);
+                    if !is_current {
+                        return;
+                    }
+                    this.projects_view
+                        .context_estimate_tasks
+                        .borrow_mut()
+                        .remove(&path);
+                    this.projects_view.context_estimates.borrow_mut().insert(
+                        path,
+                        ContextEstimateCache {
+                            scanned_at: Instant::now(),
+                            estimates,
+                        },
+                    );
+                    cx.notify();
+                });
+            })
+            .detach();
+        }
+
+        cached.map(|cache| cache.estimates)
     }
 
     fn refresh_context_estimate(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+        self.projects_view.scan_generation = self.projects_view.scan_generation.wrapping_add(1);
+        self.projects_view
+            .context_estimate_tasks
+            .borrow_mut()
+            .clear();
         self.projects_view
             .context_estimates
             .borrow_mut()
@@ -1146,7 +1286,9 @@ impl Render for KitterApp {
             self.sidebar(cx),
             main.child(content),
         ));
-        if !cfg!(target_os = "macos") {
+        // Linux uses a borderless GPUI window, so it still needs a client-side
+        // outline. Windows and macOS already provide their own window frame.
+        if cfg!(target_os = "linux") {
             root = root.child(
                 div()
                     .absolute()
@@ -1217,10 +1359,38 @@ impl Render for KitterApp {
     }
 }
 
+#[cfg(test)]
+mod window_tests {
+    use super::{fit_initial_window_size, fit_minimum_window_size};
+    use gpui::{px, size};
+
+    #[test]
+    fn initial_window_fits_inside_a_scaled_laptop_display() {
+        let fitted = fit_initial_window_size(Some(size(px(1200.), px(720.))));
+
+        assert_eq!(fitted.width, px(1020.));
+        assert_eq!(fitted.height, px(576.));
+        let minimum = fit_minimum_window_size(Some(size(px(1200.), px(720.))));
+        assert_eq!(minimum.width, px(900.));
+        assert_eq!(minimum.height, px(540.));
+    }
+
+    #[test]
+    fn initial_window_keeps_its_designed_size_on_a_large_display() {
+        let fitted = fit_initial_window_size(Some(size(px(2560.), px(1440.))));
+
+        assert_eq!(fitted.width, px(1180.));
+        assert_eq!(fitted.height, px(760.));
+        let minimum = fit_minimum_window_size(Some(size(px(2560.), px(1440.))));
+        assert_eq!(minimum.width, px(940.));
+        assert_eq!(minimum.height, px(620.));
+    }
+}
+
 #[cfg(all(test, feature = "ui-test"))]
 mod e2e_tests {
     use super::{AddKind, KitterApp, Page};
-    use gpui::{AppContext, Modifiers, TestAppContext};
+    use gpui::{AppContext, Modifiers, ScrollDelta, ScrollWheelEvent, TestAppContext, point, px};
     use std::fs;
 
     fn init(cx: &mut TestAppContext) {
@@ -1276,6 +1446,128 @@ mod e2e_tests {
             cx.run_until_parked();
             cx.read_entity(&app, |app, _| assert!(app.shell.page == expected));
         }
+    }
+
+    #[test]
+    fn project_details_are_loaded_off_the_ui_thread() {
+        let mut cx = TestAppContext::single();
+        init(&mut cx);
+        let temp = tempfile::tempdir().unwrap();
+        let data_dir = temp.path().join("kitter-data");
+        let project = temp.path().join("fixture-project");
+        let skill = project.join(".agents/skills/fixture-skill");
+        fs::create_dir_all(&skill).unwrap();
+        fs::write(
+            skill.join("SKILL.md"),
+            "---\nname: fixture-skill\ndescription: Fixture\n---\n",
+        )
+        .unwrap();
+
+        let (app, cx) = cx.add_window_view({
+            let data_dir = data_dir.clone();
+            move |window, cx| KitterApp::new_in(data_dir, window, cx)
+        });
+
+        app.update(cx, |app, cx| {
+            assert!(app.project_snapshot(&project, cx).is_none());
+            assert!(
+                !app.projects_view
+                    .project_snapshots
+                    .borrow()
+                    .contains_key(&project)
+            );
+            assert!(
+                app.projects_view
+                    .project_snapshot_tasks
+                    .borrow()
+                    .contains_key(&project)
+            );
+        });
+
+        cx.run_until_parked();
+        cx.read_entity(&app, |app, _| {
+            let snapshots = app.projects_view.project_snapshots.borrow();
+            let snapshot = snapshots
+                .get(&project)
+                .expect("background project scan should finish");
+            assert_eq!(snapshot.len(), 1);
+            assert_eq!(snapshot[0].name, "fixture-skill");
+            assert!(
+                !app.projects_view
+                    .project_snapshot_tasks
+                    .borrow()
+                    .contains_key(&project)
+            );
+        });
+    }
+
+    #[test]
+    fn large_project_renders_and_scrolls_with_virtual_rows() {
+        let mut cx = TestAppContext::single();
+        init(&mut cx);
+        let temp = tempfile::tempdir().unwrap();
+        let data_dir = temp.path().join("kitter-data");
+        let project = temp.path().join("fixture-project");
+        for target in [".agents/skills", ".codex/skills", ".claude/skills"] {
+            for index in 1..=180 {
+                let name = format!("fixture-skill-{index:03}");
+                let skill = project.join(target).join(&name);
+                fs::create_dir_all(&skill).unwrap();
+                fs::write(
+                    skill.join("SKILL.md"),
+                    format!("---\nname: {name}\ndescription: Performance fixture {index}\n---\n"),
+                )
+                .unwrap();
+            }
+        }
+
+        let (app, cx) = cx.add_window_view({
+            let data_dir = data_dir.clone();
+            move |window, cx| KitterApp::new_in(data_dir, window, cx)
+        });
+        app.update(cx, |app, cx| {
+            app.shell.page = Page::Projects;
+            app.projects_view.global_project_view = false;
+            app.projects_view.open_project = Some(project.clone());
+            cx.notify();
+        });
+        cx.refresh().unwrap();
+        cx.run_until_parked();
+
+        cx.read_entity(&app, |app, _| {
+            assert_eq!(
+                app.projects_view
+                    .project_snapshots
+                    .borrow()
+                    .get(&project)
+                    .expect("large project scan should finish")
+                    .len(),
+                180
+            );
+            assert!(
+                app.projects_view
+                    .context_estimates
+                    .borrow()
+                    .contains_key(&project)
+            );
+        });
+        cx.refresh().unwrap();
+        cx.run_until_parked();
+        assert!(cx.debug_bounds("project-skill-fixture-skill-001").is_some());
+        assert!(cx.debug_bounds("project-skill-fixture-skill-180").is_none());
+        let scroll = cx
+            .debug_bounds("project-skills-virtual-list")
+            .expect("virtual project list should be rendered");
+        // Avoid saturating GPUI's synthetic pixel delta at the exact maximum
+        // offset; that test-only edge drops the virtual rows for the frame.
+        cx.simulate_event(ScrollWheelEvent {
+            position: scroll.center(),
+            delta: ScrollDelta::Pixels(point(px(0.), px(-11_000.))),
+            ..Default::default()
+        });
+        cx.run_until_parked();
+        cx.refresh().unwrap();
+        assert!(cx.debug_bounds("project-skill-fixture-skill-180").is_some());
     }
 
     #[test]
@@ -1347,6 +1639,35 @@ mod e2e_tests {
     }
 }
 
+fn fit_initial_window_size(display_size: Option<Size<Pixels>>) -> Size<Pixels> {
+    let mut window_size = size(px(1180.), px(760.));
+    if let Some(display_size) = display_size {
+        // Keep the native title bar and resize frame comfortably inside the
+        // visible display on high-DPI and smaller screens. GPUI centers against
+        // the full monitor, so leave extra vertical room for taskbars and docks.
+        window_size.width = window_size.width.min(display_size.width * 0.85);
+        window_size.height = window_size.height.min(display_size.height * 0.80);
+    }
+    window_size
+}
+
+fn fit_minimum_window_size(display_size: Option<Size<Pixels>>) -> Size<Pixels> {
+    let mut minimum_size = size(px(940.), px(620.));
+    if let Some(display_size) = display_size {
+        minimum_size.width = minimum_size.width.min(display_size.width * 0.75);
+        minimum_size.height = minimum_size.height.min(display_size.height * 0.75);
+    }
+    minimum_size
+}
+
+fn initial_window_size(cx: &App) -> Size<Pixels> {
+    fit_initial_window_size(cx.primary_display().map(|display| display.bounds().size))
+}
+
+fn minimum_window_size(cx: &App) -> Size<Pixels> {
+    fit_minimum_window_size(cx.primary_display().map(|display| display.bounds().size))
+}
+
 pub fn run() {
     gpui_platform::application()
         .with_assets(crate::assets::Assets)
@@ -1365,10 +1686,10 @@ pub fn run() {
                     }),
                     window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
                         None,
-                        size(px(1180.), px(760.)),
+                        initial_window_size(cx),
                         cx,
                     ))),
-                    window_min_size: Some(size(px(940.), px(620.))),
+                    window_min_size: Some(minimum_window_size(cx)),
                     is_movable: true,
                     app_owns_titlebar_drag: cfg!(target_os = "macos"),
                     window_background: if cfg!(target_os = "macos") {

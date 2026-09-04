@@ -134,7 +134,7 @@ impl KitterApp {
                     .child(
                         div().text_size(px(12.)).text_color(p.muted).child(
                             if dirs::home_dir()
-                                .is_some_and(|home| self.skill_installed_at(skill, &home))
+                                .is_some_and(|home| self.skill_installed_at(skill, &home, cx))
                             {
                                 if skill.installed_projects == 0 {
                                     self.tr("已全局安装", "Installed globally").into()
@@ -1811,6 +1811,7 @@ impl KitterApp {
         &self,
         skill: &SkillSummary,
         root: &PathBuf,
+        cx: &mut Context<Self>,
     ) -> Vec<ProjectSkillInstallation> {
         if !self
             .projects_view
@@ -1818,7 +1819,7 @@ impl KitterApp {
             .borrow()
             .contains_key(root)
         {
-            self.project_snapshot(root);
+            self.project_snapshot(root, cx);
         }
         self.projects_view
             .project_snapshots
@@ -1833,8 +1834,13 @@ impl KitterApp {
             .collect()
     }
 
-    pub(super) fn skill_installed_at(&self, skill: &SkillSummary, root: &PathBuf) -> bool {
-        !self.skill_installations_at(skill, root).is_empty()
+    pub(super) fn skill_installed_at(
+        &self,
+        skill: &SkillSummary,
+        root: &PathBuf,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        !self.skill_installations_at(skill, root, cx).is_empty()
     }
 
     pub(super) fn installs_tab(
@@ -1858,9 +1864,10 @@ impl KitterApp {
                     .filter(|path| Some(path) != home.as_ref()),
             )
             .collect::<Vec<_>>();
+        self.request_project_snapshots(&roots, cx);
         let projects = roots
             .into_iter()
-            .filter(|path| self.skill_installed_at(skill, path))
+            .filter(|path| self.skill_installed_at(skill, path, cx))
             .collect::<Vec<_>>();
         if projects.is_empty() {
             body = body.child(
@@ -1901,7 +1908,7 @@ impl KitterApp {
                         .into_owned()
                 };
                 let project_path = display_path(&path);
-                let installations = self.skill_installations_at(skill, &path);
+                let installations = self.skill_installations_at(skill, &path, cx);
                 let targets = installations
                     .iter()
                     .map(|installation| installation.target)

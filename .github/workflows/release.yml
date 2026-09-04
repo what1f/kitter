@@ -73,12 +73,11 @@ jobs:
           crate_version="${GITHUB_REF_NAME#v}"
           package_dir="target/release/kitter-desktop-linux-x86_64/Kitter"
           archive="target/release/Kitter-${crate_version}-desktop-linux-x86_64.tar.gz"
-          mkdir -p "$package_dir/resources/kitter-skill/bin"
+          mkdir -p "$package_dir"
           cp target/release/kitter-desktop "$package_dir/Kitter"
-          cp target/release/kitter "$package_dir/resources/kitter-skill/bin/kitter"
           cp assets/app-icon.png "$package_dir/Kitter.png"
           cp README.md README.zh-CN.md LICENSE THIRD_PARTY_LICENSES.md "$package_dir/"
-          chmod +x "$package_dir/Kitter" "$package_dir/resources/kitter-skill/bin/kitter"
+          chmod +x "$package_dir/Kitter"
           tar -czf "$archive" -C "$(dirname "$package_dir")" Kitter
           tar -tzf "$archive"
       - name: Package standalone CLI
@@ -120,16 +119,14 @@ jobs:
         shell: pwsh
         run: |
           $crateVersion = ($env:GITHUB_REF_NAME).TrimStart('v')
-          $packageDir = "target/release/kitter-desktop-windows-x86_64/Kitter"
-          $archive = "target/release/Kitter-$crateVersion-desktop-windows-x86_64.zip"
-          New-Item -ItemType Directory -Force -Path "$packageDir/resources/kitter-skill/bin" | Out-Null
-          Copy-Item target/release/kitter-desktop.exe "$packageDir/Kitter.exe"
-          Copy-Item target/release/kitter.exe "$packageDir/resources/kitter-skill/bin/kitter.exe"
-          Copy-Item assets/app-icon.png "$packageDir/Kitter.png"
-          Copy-Item README.md, README.zh-CN.md, LICENSE, THIRD_PARTY_LICENSES.md -Destination $packageDir
-          Compress-Archive -Path $packageDir -DestinationPath $archive -Force
-          if (-not (Test-Path $archive)) {
-            throw "Desktop archive was not created"
+          $desktopExe = "target/release/Kitter-$crateVersion-desktop-windows-x86_64.exe"
+          Copy-Item target/release/kitter-desktop.exe $desktopExe
+          if (-not (Test-Path $desktopExe)) {
+            throw "Desktop executable was not created"
+          }
+          $versionInfo = (Get-Item $desktopExe).VersionInfo
+          if ($versionInfo.ProductName -ne "Kitter" -or $versionInfo.FileDescription -ne "Kitter") {
+            throw "Desktop executable is missing Windows application resources"
           }
       - name: Package standalone CLI
         shell: pwsh
@@ -147,7 +144,7 @@ jobs:
         with:
           name: release-windows-x86-64
           path: |
-            target/release/Kitter-*-desktop-windows-x86_64.zip
+            target/release/Kitter-*-desktop-windows-x86_64.exe
             target/release/Kitter-*-cli-windows-x86_64.zip
           if-no-files-found: error
 

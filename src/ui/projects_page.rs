@@ -1,6 +1,137 @@
 use super::*;
 
 impl KitterApp {
+    fn project_skill_row(
+        &self,
+        effective: &EffectiveSkillRow,
+        open_project: &Path,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let p = self.palette();
+        let managed = effective
+            .direct_installations
+            .iter()
+            .any(|installation| installation.managed);
+        let mut location_labels = effective
+            .locations
+            .iter()
+            .map(|location| display_effective_root(location, open_project))
+            .collect::<Vec<_>>();
+        if effective.built_in {
+            location_labels.push(self.tr("内置", "Built-in").to_string());
+        }
+        let locations = location_labels.join(" · ");
+        let name = effective.name.clone();
+        let description = effective.description.clone();
+        let installed_for_delete = ProjectSkill {
+            name: effective.name.clone(),
+            installations: effective.direct_installations.clone(),
+        };
+        let can_delete = !installed_for_delete.installations.is_empty();
+        let row_selector = format!("project-skill-{name}");
+        let mut row = div()
+            .id(ElementId::Name(row_selector.clone().into()))
+            .debug_selector(move || row_selector)
+            .h(px(60.))
+            .px(px(4.))
+            .border_b_1()
+            .border_color(p.border)
+            .flex()
+            .items_center()
+            .hover(move |row| row.bg(p.hover))
+            .child(div().size(px(15.)).flex_none().child(Self::icon(
+                "icons/package.svg",
+                15.,
+                p.secondary,
+            )))
+            .child(
+                div()
+                    .ml(px(10.))
+                    .min_w_0()
+                    .flex_1()
+                    .child(
+                        div()
+                            .min_w_0()
+                            .flex()
+                            .items_center()
+                            .child(
+                                div()
+                                    .id(ElementId::Name(
+                                        format!("project-skill-name-{name}").into(),
+                                    ))
+                                    .min_w_0()
+                                    .truncate()
+                                    .font_family(MONO)
+                                    .text_size(px(13.))
+                                    .child(effective.name.clone())
+                                    .when(!description.is_empty(), |name| {
+                                        let tooltip_description = description.clone();
+                                        name.tooltip(move |window, cx| {
+                                            let description = tooltip_description.clone();
+                                            Tooltip::element(move |_, _| {
+                                                div()
+                                                    .w(px(320.))
+                                                    .max_w(px(320.))
+                                                    .font_family(MONO)
+                                                    .whitespace_normal()
+                                                    .line_height(relative(1.45))
+                                                    .text_size(px(12.))
+                                                    .child(description.clone())
+                                            })
+                                            .build(window, cx)
+                                        })
+                                    }),
+                            )
+                            .when(effective.manual_only, |title| {
+                                title.child(self.manual_skill_badge().ml(px(10.)))
+                            })
+                            .when(managed, |title| {
+                                title.child(self.managed_skill_badge().ml(px(8.)))
+                            }),
+                    )
+                    .child(
+                        div()
+                            .mt(px(3.))
+                            .min_w_0()
+                            .truncate()
+                            .font_family(MONO)
+                            .text_size(px(12.))
+                            .text_color(p.muted)
+                            .child(locations),
+                    ),
+            )
+            .child(
+                self.effective_agent_badges(format!("project-{name}"), &effective.agents, cx)
+                    .ml(px(12.)),
+            );
+        if can_delete {
+            let project_for_delete = open_project.to_path_buf();
+            row = row.child(
+                self.danger_icon_button(
+                    ElementId::Name(format!("remove-project-{name}").into()),
+                    "icons/trash.svg",
+                    cx,
+                )
+                .ml(px(10.))
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |this, _, window, cx| {
+                        this.delete_flow.selected =
+                            unique_installation_paths(&installed_for_delete.installations)
+                                .into_iter()
+                                .collect();
+                        this.delete_flow.confirmation = Some(DeleteConfirmation::ProjectSkill {
+                            project: project_for_delete.clone(),
+                            skill: installed_for_delete.clone(),
+                        });
+                        this.open_delete_dialog(window, cx);
+                    }),
+                ),
+            );
+        }
+        row.into_any_element()
+    }
+
     pub(super) fn projects_page(&self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let p = self.palette();
         let query = self
@@ -13,9 +144,8 @@ impl KitterApp {
         let global_root = dirs::home_dir();
         let global_skills = global_root
             .as_ref()
-            .map(|path| self.project_snapshot(path))
-            .unwrap_or_default();
-        let global_skill_count = global_skills.len();
+            .and_then(|path| self.project_snapshot(path, cx));
+        let global_skill_count = global_skills.as_ref().map(Vec::len);
         let projects = self
             .model
             .library
@@ -258,10 +388,12 @@ impl KitterApp {
                             .text_size(px(11.))
                             .text_color(p.muted)
                             .truncate()
-                            .child(if self.uses_english() {
-                                format!("{global_skill_count} user-level Skills")
-                            } else {
-                                format!("{global_skill_count} 个用户级技能")
+                            .child(match global_skill_count {
+                                Some(count) if self.uses_english() => {
+                                    format!("{count} user-level Skills")
+                                }
+                                Some(count) => format!("{count} 个用户级技能"),
+                                None => self.tr("正在扫描…", "Scanning…").into(),
                             }),
                     ),
             )
@@ -347,27 +479,46 @@ impl KitterApp {
             let project_skills = if is_global {
                 global_skills
             } else {
-                self.project_snapshot(open_project)
+                self.project_snapshot(open_project, cx)
             };
-            let estimates = self.context_estimate_snapshot(open_project);
-            let context_panel = self.context_estimate_panel(open_project, &estimates, cx);
+            let estimates = project_skills
+                .as_ref()
+                .and_then(|_| self.context_estimate_snapshot(open_project, cx));
+            let loading = project_skills.is_none() || estimates.is_none();
+            let project_skills = project_skills.unwrap_or_default();
+            let estimates = estimates.unwrap_or_default();
+            let context_panel = if loading {
+                div()
+                    .h(px(86.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .gap(px(9.))
+                    .text_size(px(13.))
+                    .text_color(p.muted)
+                    .child(self.shell.spinner_accent.clone())
+                    .child(self.tr("正在扫描项目…", "Scanning project…"))
+            } else {
+                self.context_estimate_panel(open_project, &estimates, cx)
+            };
             let effective_rows = effective_skill_rows(
                 &estimates,
                 &project_skills,
                 self.projects_view.selected_project_agent,
             );
             let skill_count = effective_rows.len();
+            let effective_rows = Arc::new(effective_rows);
             let mut skills = div()
                 .id("project-skills-scroll")
+                .debug_selector(|| "project-skills-scroll".into())
                 .flex_1()
                 .min_h_0()
                 .flex()
                 .flex_col()
                 .px(px(28.))
                 .pt(px(14.))
-                .pb(px(28.))
-                .overflow_y_scroll();
-            if effective_rows.is_empty() {
+                .pb(px(28.));
+            if effective_rows.is_empty() && !loading {
                 let selected_agent = self
                     .projects_view
                     .selected_project_agent
@@ -404,132 +555,23 @@ impl KitterApp {
                         )),
                 );
             }
-            for effective in effective_rows {
-                let managed = effective
-                    .direct_installations
-                    .iter()
-                    .any(|installation| installation.managed);
-                let mut location_labels = effective
-                    .locations
-                    .iter()
-                    .map(|location| display_effective_root(location, open_project))
-                    .collect::<Vec<_>>();
-                if effective.built_in {
-                    location_labels.push(self.tr("内置", "Built-in").to_string());
-                }
-                let locations = location_labels.join(" · ");
-                let name = effective.name.clone();
-                let description = effective.description.clone();
-                let installed_for_delete = ProjectSkill {
-                    name: effective.name.clone(),
-                    installations: effective.direct_installations.clone(),
-                };
-                let can_delete = !installed_for_delete.installations.is_empty();
-                let mut row = div()
-                    .id(ElementId::Name(format!("project-skill-{name}").into()))
-                    .min_h(px(60.))
-                    .px(px(4.))
-                    .border_b_1()
-                    .border_color(p.border)
-                    .flex()
-                    .items_center()
-                    .hover(move |row| row.bg(p.hover))
-                    .child(div().size(px(15.)).flex_none().child(Self::icon(
-                        "icons/package.svg",
-                        15.,
-                        p.secondary,
-                    )))
-                    .child(
-                        div()
-                            .ml(px(10.))
-                            .min_w_0()
-                            .flex_1()
-                            .child(
-                                div()
-                                    .min_w_0()
-                                    .flex()
-                                    .items_center()
-                                    .child(
-                                        div()
-                                            .id(ElementId::Name(
-                                                format!("project-skill-name-{name}").into(),
-                                            ))
-                                            .min_w_0()
-                                            .truncate()
-                                            .font_family(MONO)
-                                            .text_size(px(13.))
-                                            .child(effective.name.clone())
-                                            .when(!description.is_empty(), |name| {
-                                                let tooltip_description = description.clone();
-                                                name.tooltip(move |window, cx| {
-                                                    let description = tooltip_description.clone();
-                                                    Tooltip::element(move |_, _| {
-                                                        div()
-                                                            .w(px(320.))
-                                                            .max_w(px(320.))
-                                                            .font_family(MONO)
-                                                            .whitespace_normal()
-                                                            .line_height(relative(1.45))
-                                                            .text_size(px(12.))
-                                                            .child(description.clone())
-                                                    })
-                                                    .build(window, cx)
-                                                })
-                                            }),
-                                    )
-                                    .when(effective.manual_only, |title| {
-                                        title.child(self.manual_skill_badge().ml(px(10.)))
-                                    })
-                                    .when(managed, |title| {
-                                        title.child(self.managed_skill_badge().ml(px(8.)))
-                                    }),
-                            )
-                            .child(
-                                div()
-                                    .mt(px(3.))
-                                    .min_w_0()
-                                    .truncate()
-                                    .font_family(MONO)
-                                    .text_size(px(12.))
-                                    .text_color(p.muted)
-                                    .child(locations),
-                            ),
+            if !effective_rows.is_empty() {
+                let rows = Arc::clone(&effective_rows);
+                let project = open_project.clone();
+                skills = skills.child(
+                    uniform_list(
+                        "project-skills-virtual-list",
+                        rows.len(),
+                        cx.processor(move |this, range: std::ops::Range<usize>, _, cx| {
+                            range
+                                .map(|index| this.project_skill_row(&rows[index], &project, cx))
+                                .collect()
+                        }),
                     )
-                    .child(
-                        self.effective_agent_badges(
-                            format!("project-{name}"),
-                            &effective.agents,
-                            cx,
-                        )
-                        .ml(px(12.)),
-                    );
-                if can_delete {
-                    let project_for_delete = open_project.clone();
-                    row = row.child(
-                        self.danger_icon_button(
-                            ElementId::Name(format!("remove-project-{name}").into()),
-                            "icons/trash.svg",
-                            cx,
-                        )
-                        .ml(px(10.))
-                        .on_mouse_down(
-                            MouseButton::Left,
-                            cx.listener(move |this, _, window, cx| {
-                                this.delete_flow.selected =
-                                    unique_installation_paths(&installed_for_delete.installations)
-                                        .into_iter()
-                                        .collect();
-                                this.delete_flow.confirmation =
-                                    Some(DeleteConfirmation::ProjectSkill {
-                                        project: project_for_delete.clone(),
-                                        skill: installed_for_delete.clone(),
-                                    });
-                                this.open_delete_dialog(window, cx);
-                            }),
-                        ),
-                    );
-                }
-                skills = skills.child(row);
+                    .debug_selector(|| "project-skills-virtual-list".into())
+                    .flex_1()
+                    .min_h_0(),
+                );
             }
             let plugin_groups =
                 effective_plugin_groups(&estimates, self.projects_view.selected_project_agent);

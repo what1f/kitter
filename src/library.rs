@@ -880,84 +880,12 @@ fn ensure_builtin_skill(library_dir: &Path) -> Result<()> {
     write_builtin_file(&root.join("SKILL.md"), KITTER_SKILL_MD)?;
     write_builtin_file(&agents.join("openai.yaml"), KITTER_OPENAI_YAML)?;
     write_builtin_file(&references.join("install-cli.md"), KITTER_INSTALL_CLI_MD)?;
-    if let Some(source) = bundled_cli_source() {
-        install_builtin_cli_asset(&source, &root)?;
-    }
     Ok(())
 }
 
 fn write_builtin_file(path: &Path, content: &str) -> Result<()> {
     if fs::read_to_string(path).ok().as_deref() != Some(content) {
         fs::write(path, content)?;
-    }
-    Ok(())
-}
-
-fn bundled_cli_source() -> Option<PathBuf> {
-    if let Some(path) = std::env::var_os("KITTER_BUNDLED_CLI").map(PathBuf::from)
-        && path.is_file()
-    {
-        return Some(path);
-    }
-
-    let executable = std::env::current_exe().ok()?;
-    let binary_name = if cfg!(target_os = "windows") {
-        "kitter.exe"
-    } else {
-        "kitter"
-    };
-    if executable
-        .file_name()
-        .is_some_and(|name| name == binary_name)
-    {
-        return Some(executable);
-    }
-
-    let executable_dir = executable.parent()?;
-    let macos_packaged = executable_dir.parent().map(|contents| {
-        contents
-            .join("Resources/kitter-skill/bin")
-            .join(binary_name)
-    });
-    if macos_packaged.as_ref().is_some_and(|path| path.is_file()) {
-        return macos_packaged;
-    }
-
-    let packaged = executable_dir
-        .join("resources/kitter-skill/bin")
-        .join(binary_name);
-    if packaged.is_file() {
-        return Some(packaged);
-    }
-
-    let sibling = executable_dir.join(binary_name);
-    sibling.is_file().then_some(sibling)
-}
-
-fn install_builtin_cli_asset(source: &Path, skill_root: &Path) -> Result<()> {
-    let binary_name = if cfg!(target_os = "windows") {
-        "kitter.exe"
-    } else {
-        "kitter"
-    };
-    let destination = skill_root.join("bin").join(binary_name);
-    if fs::canonicalize(source).ok() == fs::canonicalize(&destination).ok()
-        || fs::read(source).ok() == fs::read(&destination).ok()
-    {
-        return Ok(());
-    }
-    fs::create_dir_all(destination.parent().expect("CLI destination has a parent"))?;
-    fs::copy(source, &destination).with_context(|| {
-        format!(
-            "安装 Kitter CLI 失败：{} -> {}",
-            source.display(),
-            destination.display()
-        )
-    })?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&destination, fs::Permissions::from_mode(0o755))?;
     }
     Ok(())
 }
@@ -1083,7 +1011,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bundled_cli_skill_is_manual_pinned_and_protected() {
+    fn builtin_skill_is_manual_pinned_and_protected() {
         let temp = tempfile::tempdir().unwrap();
         let data_dir = temp.path().join("data");
         let library_dir = data_dir.join("skills");
@@ -1095,7 +1023,7 @@ mod tests {
         assert!(crate::effective_skills::is_manual_skill(&builtin_path));
         let skill_markdown = fs::read_to_string(builtin_path.join("SKILL.md")).unwrap();
         assert!(skill_markdown.contains("kitter install"));
-        assert!(skill_markdown.contains("bin/kitter"));
+        assert!(skill_markdown.contains("Get-Command kitter"));
         assert!(skill_markdown.contains("disable-model-invocation: true"));
         assert!(skill_markdown.contains("autoinvoke: false"));
         assert!(
@@ -1109,32 +1037,7 @@ mod tests {
                 .contains("allow_implicit_invocation: false")
         );
 
-        let fixture_cli = temp.path().join(if cfg!(target_os = "windows") {
-            "fixture-kitter.exe"
-        } else {
-            "fixture-kitter"
-        });
-        fs::write(&fixture_cli, b"first build").unwrap();
-        install_builtin_cli_asset(&fixture_cli, &builtin_path).unwrap();
-        let installed_cli = builtin_path
-            .join("bin")
-            .join(if cfg!(target_os = "windows") {
-                "kitter.exe"
-            } else {
-                "kitter"
-            });
-        assert_eq!(fs::read(&installed_cli).unwrap(), b"first build");
-        fs::write(&fixture_cli, b"updated build").unwrap();
-        install_builtin_cli_asset(&fixture_cli, &builtin_path).unwrap();
-        assert_eq!(fs::read(&installed_cli).unwrap(), b"updated build");
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            assert_eq!(
-                fs::metadata(&installed_cli).unwrap().permissions().mode() & 0o777,
-                0o755
-            );
-        }
+        assert!(!builtin_path.join("bin").exists());
 
         let mut registry = Registry::default();
         registry.skills.insert(
@@ -1166,6 +1069,33 @@ mod tests {
                 .assign_group_by_storage(KITTER_SKILL_STORAGE, None)
                 .is_err()
         );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn opening_library_does_not_touch_a_locked_legacy_cli() {
+        use std::{fs::OpenOptions, io::Read as _, os::windows::fs::OpenOptionsExt as _};
+
+        let temp = tempfile::tempdir().unwrap();
+        let data_dir = temp.path().join("data");
+        let legacy_cli = data_dir
+            .join("skills")
+            .join(KITTER_SKILL_STORAGE)
+            .join("bin/kitter.exe");
+        fs::create_dir_all(legacy_cli.parent().unwrap()).unwrap();
+        fs::write(&legacy_cli, b"legacy desktop-hosted CLI").unwrap();
+        let mut locked = OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(&legacy_cli)
+            .unwrap();
+
+        let library = SkillLibrary::open_in(&data_dir).unwrap();
+
+        assert_eq!(library.data_dir(), data_dir);
+        let mut contents = Vec::new();
+        locked.read_to_end(&mut contents).unwrap();
+        assert_eq!(contents, b"legacy desktop-hosted CLI");
     }
 
     #[cfg(unix)]
