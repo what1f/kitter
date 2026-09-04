@@ -1553,11 +1553,14 @@ mod e2e_tests {
         });
         cx.refresh().unwrap();
         cx.run_until_parked();
-        assert!(cx.debug_bounds("project-skill-fixture-skill-001").is_some());
+        let first_row = cx
+            .debug_bounds("project-skill-fixture-skill-001")
+            .expect("first virtual project row should be rendered");
         assert!(cx.debug_bounds("project-skill-fixture-skill-180").is_none());
         let scroll = cx
             .debug_bounds("project-skills-virtual-list")
             .expect("virtual project list should be rendered");
+        assert_eq!(first_row.size.width, scroll.size.width);
         // Avoid saturating GPUI's synthetic pixel delta at the exact maximum
         // offset; that test-only edge drops the virtual rows for the frame.
         cx.simulate_event(ScrollWheelEvent {

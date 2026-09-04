@@ -32,6 +32,7 @@ impl KitterApp {
         let mut row = div()
             .id(ElementId::Name(row_selector.clone().into()))
             .debug_selector(move || row_selector)
+            .w_full()
             .h(px(60.))
             .px(px(4.))
             .border_b_1()
