@@ -1,0 +1,13 @@
+{
+  "fill": { "solid": "srgb:0.47059,0.65882,0.69412,1.00000" },
+  "groups": [{
+    "layers": [{
+      "image-name": "artwork.png",
+      "name": "Kitter",
+      "position": { "scale": 0.8165869219, "translation-in-points": [0, 0] }
+    }],
+    "shadow": { "kind": "neutral", "opacity": 0.0 },
+    "translucency": { "enabled": false, "value": 0.0 }
+  }],
+  "supported-platforms": { "squares": "shared" }
+}

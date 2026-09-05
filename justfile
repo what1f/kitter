@@ -3,7 +3,7 @@ set shell := ["zsh", "-cu"]
 root := justfile_directory()
 release_dir := root + "/target/release"
 app_dir := release_dir + "/Kitter.app"
-icon_source := root + "/assets/app-icon.png"
+icon_source := root + "/assets/macos/app-icon.png"
 dmg_background := root + "/assets/dmg/background.png"
 version := `sed -nE 's/^version = "([^"]+)"/\1/p' Cargo.toml | head -n 1`
 architecture := `uname -m`
@@ -17,6 +17,10 @@ check:
 
 build:
     cargo build --release --locked --features desktop --bin kitter-desktop --bin kitter
+
+# Regenerate the committed macOS icon with Apple's standalone Icon Composer.
+macos-icon:
+    "{{root}}/scripts/export-macos-icon.sh"
 
 app: build
     rm -rf "{{app_dir}}"
