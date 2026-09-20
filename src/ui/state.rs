@@ -23,7 +23,7 @@ use super::{
 pub(super) struct AppModel {
     pub library: SkillLibrary,
     pub skills: Vec<SkillSummary>,
-    pub checking_updates: bool,
+    pub update_check: Option<source::UpdateCheckProgress>,
     pub updating_skill: Option<String>,
 }
 

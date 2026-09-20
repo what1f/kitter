@@ -101,23 +101,71 @@ impl KitterApp {
     }
 
     pub(super) fn check_all_updates(&mut self, cx: &mut Context<Self>) {
-        if self.model.checking_updates {
+        if self.model.update_check.is_some() {
             return;
         }
-        self.model.checking_updates = true;
+        let total = self
+            .model
+            .skills
+            .iter()
+            .filter(|skill| {
+                !skill.record.origin.is_builtin()
+                    && !self
+                        .model
+                        .library
+                        .is_linked_source(skill_storage_name(skill))
+            })
+            .count();
+        self.model.update_check = Some(source::UpdateCheckProgress {
+            scanned: 0,
+            total,
+            current: None,
+        });
+        self.show_sticky_notice(self.update_check_notice(), cx);
         let data_dir = self.model.library.data_dir().to_path_buf();
+        let progress = Arc::new(Mutex::new(source::UpdateCheckProgress {
+            scanned: 0,
+            total,
+            current: None,
+        }));
+        let worker_progress = progress.clone();
+        let done = Arc::new(AtomicBool::new(false));
+        let worker_done = done.clone();
         cx.notify();
         cx.spawn(async move |this, cx| {
-            let result = cx
-                .background_executor()
-                .spawn(async move {
+            let worker = cx.background_executor().spawn(async move {
+                let result = (|| {
                     let mut library = SkillLibrary::open_in(data_dir)?;
-                    let count = source::check_updates(&mut library)?;
+                    let count = source::check_updates_with_progress(&mut library, |snapshot| {
+                        *worker_progress
+                            .lock()
+                            .unwrap_or_else(|error| error.into_inner()) = snapshot;
+                    })?;
                     Ok::<_, anyhow::Error>((library, count))
-                })
-                .await;
+                })();
+                worker_done.store(true, Ordering::Release);
+                result
+            });
+            while !done.load(Ordering::Acquire) {
+                let snapshot = progress
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .clone();
+                let _ = this.update(cx, |this, cx| {
+                    if this.model.update_check.is_some() {
+                        this.set_update_check_progress(snapshot, cx);
+                    }
+                });
+                if done.load(Ordering::Acquire) {
+                    break;
+                }
+                cx.background_executor()
+                    .timer(Duration::from_millis(80))
+                    .await;
+            }
+            let result = worker.await;
             let _ = this.update(cx, |this, cx| {
-                this.model.checking_updates = false;
+                this.model.update_check = None;
                 let message = match result {
                     Ok((library, 0)) => {
                         this.model.library = library;

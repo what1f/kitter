@@ -292,6 +292,8 @@ impl KitterApp {
     ) {
         match self.model.library.delete_group(&id, delete_skills) {
             Ok(names) => {
+                self.skills_view.collapsed_groups.remove(&id);
+                self.persist_collapsed_groups();
                 self.close_dialog(cx);
                 let order = self
                     .model

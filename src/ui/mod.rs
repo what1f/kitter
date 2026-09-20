@@ -3,7 +3,7 @@ use std::{
     collections::{BTreeMap, HashSet},
     path::{Path, PathBuf},
     sync::{
-        Arc, OnceLock,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
@@ -738,11 +738,17 @@ impl KitterApp {
         )
         .detach();
         let (tags, project_tags) = load_tag_states_from(&data_dir);
+        let collapsed_groups = library
+            .config
+            .collapsed_skill_groups
+            .iter()
+            .cloned()
+            .collect();
         Self {
             model: AppModel {
                 library,
                 skills,
-                checking_updates: false,
+                update_check: None,
                 updating_skill: None,
             },
             shell: ShellState {
@@ -768,7 +774,7 @@ impl KitterApp {
                 content_snapshot: RefCell::new(None),
                 content_scroll: ScrollHandle::new(),
                 selectable_text_handles: RefCell::new(BTreeMap::new()),
-                collapsed_groups: HashSet::new(),
+                collapsed_groups,
                 collapsed_content_directories: HashSet::new(),
             },
             projects_view: ProjectsState {
@@ -924,6 +930,16 @@ impl KitterApp {
             &self.tags_flow.skills,
             &self.tags_flow.projects,
         );
+    }
+
+    fn persist_collapsed_groups(&mut self) {
+        self.model.library.config.collapsed_skill_groups =
+            self.skills_view.collapsed_groups.iter().cloned().collect();
+        let _ = self
+            .model
+            .library
+            .config
+            .save_to(self.model.library.data_dir());
     }
 
     fn tag_filter_for(&self, scope: TagScope) -> Option<TagId> {
@@ -1368,22 +1384,58 @@ impl Render for KitterApp {
             );
         }
         if let Some(notice) = self.shell.notice.clone() {
-            root = root.child(
-                div()
-                    .absolute()
-                    .right(px(18.))
-                    .bottom(px(18.))
-                    .max_w(px(420.))
-                    .px(px(13.))
-                    .py(px(9.))
-                    .rounded(px(RADIUS_MENU))
-                    .border_1()
-                    .border_color(p.border_strong)
-                    .bg(p.surface)
-                    .shadow_md()
-                    .text_size(px(13.))
-                    .child(notice),
-            );
+            let progress = self.model.update_check.clone();
+            let mut card = div()
+                .id("app-notice")
+                .debug_selector(|| "app-notice".into())
+                .absolute()
+                .right(px(18.))
+                .bottom(px(18.))
+                .max_w(px(420.))
+                .when(progress.is_some(), |card| card.min_w(px(240.)))
+                .px(px(13.))
+                .py(px(9.))
+                .rounded(px(RADIUS_MENU))
+                .border_1()
+                .border_color(p.border_strong)
+                .bg(p.surface)
+                .shadow_md()
+                .flex()
+                .flex_col()
+                .gap(px(6.))
+                .text_size(px(13.))
+                .child(notice);
+            if let Some(progress) = progress {
+                if let Some(current) = progress.current.filter(|name| !name.is_empty()) {
+                    card = card.child(
+                        div()
+                            .text_size(px(12.))
+                            .text_color(p.secondary)
+                            .truncate()
+                            .child(current),
+                    );
+                }
+                if progress.total > 0 {
+                    let ratio = (progress.scanned as f32 / progress.total as f32).clamp(0., 1.);
+                    card = card.child(
+                        div()
+                            .relative()
+                            .w_full()
+                            .h(px(4.))
+                            .rounded(px(2.))
+                            .bg(p.raised)
+                            .overflow_hidden()
+                            .child(
+                                div()
+                                    .h_full()
+                                    .rounded(px(2.))
+                                    .bg(p.accent)
+                                    .w(relative(ratio)),
+                            ),
+                    );
+                }
+            }
+            root = root.child(card);
         }
         if let Some(body) = self.shell.dialog_body.clone() {
             let width = match body.read(cx).kind {
@@ -1486,6 +1538,46 @@ mod e2e_tests {
         });
         assert!(data_dir.join("registry.json").is_file());
         assert!(data_dir.join("skills/_kitter-builtin/SKILL.md").is_file());
+    }
+
+    #[test]
+    fn collapsed_skill_groups_are_restored_from_config() {
+        let mut cx = TestAppContext::single();
+        init(&mut cx);
+        let temp = tempfile::tempdir().unwrap();
+        let data_dir = temp.path().join("kitter-data");
+        let (app, cx) = cx.add_window_view({
+            let data_dir = data_dir.clone();
+            move |window, cx| KitterApp::new_in(data_dir, window, cx)
+        });
+        let group_id = app.update(cx, |app, _| {
+            let id = app
+                .model
+                .library
+                .create_group("owner/repository")
+                .unwrap()
+                .id;
+            app.skills_view.collapsed_groups.insert(id.clone());
+            app.persist_collapsed_groups();
+            id
+        });
+
+        let mut cx = TestAppContext::single();
+        init(&mut cx);
+        let (app, cx) = cx.add_window_view({
+            let data_dir = data_dir.clone();
+            move |window, cx| KitterApp::new_in(data_dir, window, cx)
+        });
+        cx.read_entity(&app, |app, _| {
+            assert!(app.skills_view.collapsed_groups.contains(&group_id));
+            assert!(
+                app.model
+                    .library
+                    .config
+                    .collapsed_skill_groups
+                    .contains(&group_id)
+            );
+        });
     }
 
     #[test]
@@ -1902,6 +1994,69 @@ mod e2e_tests {
             assert!(app.shell.dialog_body.is_none());
         });
         assert!(data_dir.join("skills/fixture-skill/SKILL.md").is_file());
+    }
+
+    #[test]
+    fn check_updates_shows_scan_progress_notice() {
+        use super::Language;
+        use std::collections::HashSet;
+        use std::time::Duration;
+
+        let mut cx = TestAppContext::single();
+        init(&mut cx);
+        let temp = tempfile::tempdir().unwrap();
+        let data_dir = temp.path().join("kitter-data");
+        let source = temp.path().join("skills");
+        for name in ["alpha", "beta"] {
+            fs::create_dir_all(source.join(name)).unwrap();
+            fs::write(
+                source.join(name).join("SKILL.md"),
+                format!("---\nname: {name}\ndescription: Fixture\n---\n"),
+            )
+            .unwrap();
+        }
+
+        let (app, cx) = cx.add_window_view({
+            let data_dir = data_dir.clone();
+            move |window, cx| KitterApp::new_in(data_dir, window, cx)
+        });
+        app.update_in(cx, |app, window, cx| {
+            app.set_language(Language::ZhCn, window, cx);
+            crate::source::scan_local(&source)
+                .unwrap()
+                .import_selected(
+                    &mut app.model.library,
+                    &HashSet::from(["alpha".into(), "beta".into()]),
+                    None,
+                )
+                .unwrap();
+            app.refresh(cx);
+            app.check_all_updates(cx);
+            let progress = app
+                .model
+                .update_check
+                .as_ref()
+                .expect("check should start immediately");
+            assert_eq!(progress.total, 2);
+            assert_eq!(progress.scanned, 0);
+            assert!(
+                app.shell
+                    .notice
+                    .as_deref()
+                    .is_some_and(|notice| notice.contains("正在检查更新"))
+            );
+        });
+        cx.refresh().unwrap();
+        assert!(cx.debug_bounds("app-notice").is_some());
+        cx.run_until_parked();
+        cx.executor().advance_clock(Duration::from_millis(100));
+        cx.run_until_parked();
+        cx.refresh().unwrap();
+        app.update(cx, |app, _| {
+            assert!(app.model.update_check.is_none());
+            assert_eq!(app.shell.notice.as_deref(), Some("所有技能都是最新版本"));
+        });
+        assert!(cx.debug_bounds("app-notice").is_some());
     }
 }
 

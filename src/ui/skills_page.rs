@@ -1214,6 +1214,7 @@ impl KitterApp {
                         if !this.skills_view.collapsed_groups.remove(&toggle_key) {
                             this.skills_view.collapsed_groups.insert(toggle_key.clone());
                         }
+                        this.persist_collapsed_groups();
                         cx.notify();
                     }))
                     .context_menu(move |menu, _, _| {

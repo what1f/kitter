@@ -424,7 +424,21 @@ fn update_record(library: &mut SkillLibrary, mut record: SkillRecord) -> Result<
     library.replace_by_storage(&source, storage_name, record)
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct UpdateCheckProgress {
+    pub scanned: usize,
+    pub total: usize,
+    pub current: Option<String>,
+}
+
 pub fn check_updates(library: &mut SkillLibrary) -> Result<usize> {
+    check_updates_with_progress(library, |_| {})
+}
+
+pub fn check_updates_with_progress(
+    library: &mut SkillLibrary,
+    mut on_progress: impl FnMut(UpdateCheckProgress),
+) -> Result<usize> {
     let records = library
         .list()?
         .into_iter()
@@ -434,32 +448,48 @@ pub fn check_updates(library: &mut SkillLibrary) -> Result<usize> {
         })
         .map(|skill| skill.record)
         .collect::<Vec<_>>();
+    let total = records.len();
+    let mut scanned = 0usize;
+    on_progress(UpdateCheckProgress {
+        scanned,
+        total,
+        current: None,
+    });
 
     // The upstream CLI owns Npx version detection. It updates the persistent
     // source workspace, then we compare its lock hash with the hash recorded
     // when the Kitter copy was last installed. This avoids reimplementing
     // repository/tree comparison here while preserving the UI's pending-update
     // state until the user chooses to install the update into the library.
-    let mut npx_sources = BTreeMap::<String, Vec<String>>::new();
-    for record in &records {
-        if let SkillOrigin::Npx {
-            repository, skill, ..
-        } = &record.origin
-        {
-            npx_sources
-                .entry(repository.clone())
-                .or_default()
-                .push(skill.clone());
+    let mut npx_sources = BTreeMap::<String, Vec<SkillRecord>>::new();
+    let mut other_records = Vec::new();
+    for record in records {
+        match &record.origin {
+            SkillOrigin::Npx { repository, .. } => {
+                npx_sources
+                    .entry(repository.clone())
+                    .or_default()
+                    .push(record);
+            }
+            _ => other_records.push(record),
         }
     }
 
-    let mut npx_hashes = HashMap::<String, HashMap<String, String>>::new();
+    let mut count = 0;
     let mut failures = Vec::new();
     for (repository, skills) in npx_sources {
+        on_progress(UpdateCheckProgress {
+            scanned,
+            total,
+            current: Some(repository.clone()),
+        });
         let result = (|| -> Result<HashMap<String, String>> {
             let workspace = npx_workspace(&repository);
-            for skill in skills {
-                ensure_npx_skill(&workspace, &repository, &skill)?;
+            for record in &skills {
+                let SkillOrigin::Npx { skill, .. } = &record.origin else {
+                    continue;
+                };
+                ensure_npx_skill(&workspace, &repository, skill)?;
             }
             // `skills update` performs the upstream check and refreshes only
             // the source workspace. The Kitter library remains unchanged
@@ -467,35 +497,53 @@ pub fn check_updates(library: &mut SkillLibrary) -> Result<usize> {
             npx_update(&workspace, None)?;
             npx_lock_hashes(&workspace)
         })();
-        match result {
-            Ok(hashes) => {
-                npx_hashes.insert(repository, hashes);
+        let hashes = match result {
+            Ok(hashes) => hashes,
+            Err(error) => {
+                failures.push(format!("Npx 来源检查失败：{error:#}"));
+                HashMap::new()
             }
-            Err(error) => failures.push(format!("Npx 来源检查失败：{error:#}")),
+        };
+        for record in skills {
+            let available = match &record.origin {
+                SkillOrigin::Npx {
+                    skill, source_hash, ..
+                } => hashes
+                    .get(skill)
+                    .is_some_and(|current| source_hash.as_deref() != Some(current.as_str())),
+                _ => false,
+            };
+            library.set_update_available_by_storage(&record.storage_name, available)?;
+            count += usize::from(available);
+            scanned += 1;
+            on_progress(UpdateCheckProgress {
+                scanned,
+                total,
+                current: Some(record.name.clone()),
+            });
         }
     }
 
-    let mut count = 0;
-    for record in records {
-        let result = match &record.origin {
-            SkillOrigin::Npx {
-                repository,
-                skill,
-                source_hash,
-            } => Ok(npx_hashes
-                .get(repository)
-                .and_then(|hashes| hashes.get(skill))
-                .is_some_and(|current| source_hash.as_deref() != Some(current.as_str()))),
-            _ => check_one(library, &record),
-        };
-        match result {
+    for record in other_records {
+        on_progress(UpdateCheckProgress {
+            scanned,
+            total,
+            current: Some(record.name.clone()),
+        });
+        match check_one(library, &record) {
             Ok(available) => {
                 library.set_update_available_by_storage(&record.storage_name, available)?;
                 count += usize::from(available);
             }
             Err(error) => failures.push(format!("{}: {error:#}", record.name)),
         }
+        scanned += 1;
     }
+    on_progress(UpdateCheckProgress {
+        scanned,
+        total,
+        current: None,
+    });
     if !failures.is_empty() {
         bail!("部分技能检查失败：{}", failures.join("；"));
     }
@@ -1006,6 +1054,48 @@ printf 'call\n' >> "$KITTER_IMPORT_FIXTURE/calls"
             }
         );
         assert!(library.groups().is_empty());
+    }
+
+    #[test]
+    fn check_updates_reports_per_skill_progress() {
+        let temp = tempfile::tempdir().unwrap();
+        let source_root = temp.path().join("source");
+        write_skill(&source_root.join("alpha"), "alpha");
+        write_skill(&source_root.join("beta"), "beta");
+        let mut library = SkillLibrary::open_in(temp.path().join("data")).unwrap();
+        scan_local(&source_root)
+            .unwrap()
+            .import_selected(
+                &mut library,
+                &HashSet::from(["alpha".to_string(), "beta".to_string()]),
+                None,
+            )
+            .unwrap();
+
+        let mut reports = Vec::new();
+        let count = check_updates_with_progress(&mut library, |progress| {
+            reports.push(progress);
+        })
+        .unwrap();
+
+        assert_eq!(count, 0);
+        assert!(
+            reports
+                .iter()
+                .any(|progress| progress.total == 2 && progress.scanned == 0)
+        );
+        assert_eq!(reports.last().map(|progress| progress.scanned), Some(2));
+        assert!(
+            reports
+                .windows(2)
+                .all(|window| window[0].scanned <= window[1].scanned)
+        );
+        let names = reports
+            .iter()
+            .filter_map(|progress| progress.current.clone())
+            .collect::<HashSet<_>>();
+        assert!(names.contains("alpha"));
+        assert!(names.contains("beta"));
     }
 
     #[test]

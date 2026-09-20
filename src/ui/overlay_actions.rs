@@ -47,10 +47,25 @@ impl KitterApp {
     }
 
     pub(super) fn show_notice(&mut self, message: impl Into<String>, cx: &mut Context<Self>) {
+        self.set_notice(message, false, cx);
+    }
+
+    pub(super) fn show_sticky_notice(
+        &mut self,
+        message: impl Into<String>,
+        cx: &mut Context<Self>,
+    ) {
+        self.set_notice(message, true, cx);
+    }
+
+    fn set_notice(&mut self, message: impl Into<String>, sticky: bool, cx: &mut Context<Self>) {
         self.shell.notice_generation = self.shell.notice_generation.wrapping_add(1);
         let generation = self.shell.notice_generation;
         self.shell.notice = Some(message.into());
         cx.notify();
+        if sticky {
+            return;
+        }
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(Duration::from_secs(3)).await;
             let _ = this.update(cx, |this, cx| {
@@ -61,5 +76,33 @@ impl KitterApp {
             });
         })
         .detach();
+    }
+
+    pub(super) fn set_update_check_progress(
+        &mut self,
+        progress: source::UpdateCheckProgress,
+        cx: &mut Context<Self>,
+    ) {
+        if self.model.update_check.is_none() {
+            return;
+        }
+        self.model.update_check = Some(progress);
+        self.shell.notice = Some(self.update_check_notice());
+        cx.notify();
+    }
+
+    pub(super) fn update_check_notice(&self) -> String {
+        match &self.model.update_check {
+            Some(progress) if progress.total > 0 => {
+                if self.uses_english() {
+                    format!("Checking updates {}/{}", progress.scanned, progress.total)
+                } else {
+                    format!("正在检查更新 {}/{}", progress.scanned, progress.total)
+                }
+            }
+            _ => self
+                .tr("正在检查更新…", "Checking for updates…")
+                .to_string(),
+        }
     }
 }
