@@ -1,6 +1,6 @@
 [package]
 name = "kitter"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2024"
 description = "A simple, lightweight skill manager built in Rust"
 license = "Apache-2.0"
