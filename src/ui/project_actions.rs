@@ -13,6 +13,11 @@ impl KitterApp {
                 && let Some(path) = paths.into_iter().next()
             {
                 let _ = this.update(cx, |this, cx| {
+                    if this.projects_view.open_project.as_ref() != Some(&path) {
+                        this.projects_view.batch_project = None;
+                        this.projects_view.batch_selected.clear();
+                        this.projects_view.batch_filter = None;
+                    }
                     this.projects_view.open_project = Some(path.clone());
                     if !this.install_flow.modal {
                         this.projects_view.global_project_view = false;

@@ -26,7 +26,7 @@ use gpui_component::{
 
 use crate::{
     InstallTarget, ProjectSkill, ProjectSkillInstallation, SkillGroup, SkillLibrary, SkillSummary,
-    adoption,
+    TriggerMode, adoption,
     config::{Language, Theme},
     effective_skills::{self, AgentContextEstimate, AgentKind},
     project, source,
@@ -416,10 +416,17 @@ enum DeleteConfirmation {
     LibrarySkills {
         skills: Vec<(String, PathBuf)>,
     },
-    ProjectSkill {
+    ProjectSkills {
         project: PathBuf,
-        skill: crate::ProjectSkill,
+        skills: Vec<crate::ProjectSkill>,
+        batch: bool,
     },
+}
+
+#[derive(Clone, PartialEq, Eq)]
+enum ProjectSkillFilter {
+    Group(String),
+    Tag(TagId),
 }
 
 #[derive(Clone)]
@@ -493,6 +500,11 @@ impl KitterApp {
         };
         ComponentTheme::change(component_mode, Some(window), cx);
         let skills = library.list().unwrap_or_default();
+        let known_groups = library
+            .groups()
+            .into_iter()
+            .map(|group| group.id)
+            .collect::<HashSet<_>>();
         let selected = skills
             .first()
             .map(|skill| skill_storage_name(skill).to_string());
@@ -738,12 +750,16 @@ impl KitterApp {
         )
         .detach();
         let (tags, project_tags) = load_tag_states_from(&data_dir);
-        let collapsed_groups = library
-            .config
-            .collapsed_skill_groups
-            .iter()
-            .cloned()
-            .collect();
+        let collapsed_groups = if library.config.collapsed_skill_groups_initialized {
+            library
+                .config
+                .collapsed_skill_groups
+                .iter()
+                .cloned()
+                .collect()
+        } else {
+            known_groups.clone()
+        };
         Self {
             model: AppModel {
                 library,
@@ -774,12 +790,16 @@ impl KitterApp {
                 content_snapshot: RefCell::new(None),
                 content_scroll: ScrollHandle::new(),
                 selectable_text_handles: RefCell::new(BTreeMap::new()),
+                known_groups,
                 collapsed_groups,
                 collapsed_content_directories: HashSet::new(),
             },
             projects_view: ProjectsState {
                 open_project: None,
                 global_project_view: true,
+                batch_project: None,
+                batch_selected: HashSet::new(),
+                batch_filter: None,
                 project_skills_tab: ProjectSkillsTab::Skills,
                 selected_project_agent: None,
                 project_agents_expanded: false,
@@ -935,6 +955,7 @@ impl KitterApp {
     fn persist_collapsed_groups(&mut self) {
         self.model.library.config.collapsed_skill_groups =
             self.skills_view.collapsed_groups.iter().cloned().collect();
+        self.model.library.config.collapsed_skill_groups_initialized = true;
         let _ = self
             .model
             .library
@@ -958,6 +979,26 @@ impl KitterApp {
 
     fn refresh(&mut self, cx: &mut Context<Self>) {
         self.model.skills = self.model.library.list().unwrap_or_default();
+        let previous_collapsed_groups = self.skills_view.collapsed_groups.clone();
+        let current_groups = self
+            .model
+            .library
+            .groups()
+            .into_iter()
+            .map(|group| group.id)
+            .collect::<HashSet<_>>();
+        self.skills_view.collapsed_groups.extend(
+            current_groups
+                .difference(&self.skills_view.known_groups)
+                .cloned(),
+        );
+        self.skills_view
+            .collapsed_groups
+            .retain(|id| current_groups.contains(id));
+        self.skills_view.known_groups = current_groups;
+        if self.skills_view.collapsed_groups != previous_collapsed_groups {
+            self.persist_collapsed_groups();
+        }
         self.projects_view.scan_generation = self.projects_view.scan_generation.wrapping_add(1);
         self.projects_view.project_snapshots.borrow_mut().clear();
         self.projects_view
@@ -1577,6 +1618,21 @@ mod e2e_tests {
                     .collapsed_skill_groups
                     .contains(&group_id)
             );
+        });
+
+        app.update(cx, |app, _| {
+            app.skills_view.collapsed_groups.remove(&group_id);
+            app.persist_collapsed_groups();
+        });
+        let mut cx = TestAppContext::single();
+        init(&mut cx);
+        let (app, cx) = cx.add_window_view({
+            let data_dir = data_dir.clone();
+            move |window, cx| KitterApp::new_in(data_dir, window, cx)
+        });
+        cx.read_entity(&app, |app, _| {
+            assert!(!app.skills_view.collapsed_groups.contains(&group_id));
+            assert!(app.model.library.config.collapsed_skill_groups_initialized);
         });
     }
 

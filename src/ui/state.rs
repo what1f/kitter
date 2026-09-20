@@ -15,9 +15,9 @@ use crate::{
 
 use super::{
     AddKind, AddTask, ContentSnapshot, ContextEstimateCache, DeleteConfirmation, DialogBody,
-    GroupDragScope, GroupEdit, Page, PageBody, ProjectChoice, ProjectSkillsTab, SourceChoice,
-    SpinnerView, TagAssignmentTarget, TagDropPosition, TagDropTarget, TagEdit, TagId, TagScope,
-    adoption_list, effective_skills::AgentKind, skill_selection::SkillSelection,
+    GroupDragScope, GroupEdit, Page, PageBody, ProjectChoice, ProjectSkillFilter, ProjectSkillsTab,
+    SourceChoice, SpinnerView, TagAssignmentTarget, TagDropPosition, TagDropTarget, TagEdit, TagId,
+    TagScope, adoption_list, effective_skills::AgentKind, skill_selection::SkillSelection,
 };
 
 pub(super) struct AppModel {
@@ -52,12 +52,16 @@ pub(super) struct SkillsState {
     pub content_scroll: ScrollHandle,
     pub selectable_text_handles: RefCell<BTreeMap<String, TextSelectionHandle>>,
     pub collapsed_groups: HashSet<String>,
+    pub known_groups: HashSet<String>,
     pub collapsed_content_directories: HashSet<PathBuf>,
 }
 
 pub(super) struct ProjectsState {
     pub open_project: Option<PathBuf>,
     pub global_project_view: bool,
+    pub batch_project: Option<PathBuf>,
+    pub batch_selected: HashSet<String>,
+    pub batch_filter: Option<ProjectSkillFilter>,
     pub project_skills_tab: ProjectSkillsTab,
     pub selected_project_agent: Option<AgentKind>,
     pub project_agents_expanded: bool,

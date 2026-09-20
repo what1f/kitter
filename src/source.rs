@@ -570,10 +570,15 @@ fn check_one(library: &SkillLibrary, record: &SkillRecord) -> Result<bool> {
         SkillOrigin::Unknown => return Ok(false),
         SkillOrigin::Npx { .. } => return Ok(false),
     };
-    Ok(!same_tree(
-        &source,
-        &library.skill_path_by_storage(&record.storage_name)?,
-    )?)
+    let library_path = library.skill_path_by_storage(&record.storage_name)?;
+    if let Some(original) = library.trigger_source_by_storage(&record.storage_name) {
+        let comparison = temp.path().join("library-source");
+        crate::library::copy_tree(&library_path, &comparison)?;
+        original.write(&comparison)?;
+        Ok(!same_tree(&source, &comparison)?)
+    } else {
+        Ok(!same_tree(&source, &library_path)?)
+    }
 }
 
 #[derive(Debug, Deserialize)]

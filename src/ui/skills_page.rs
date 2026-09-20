@@ -92,6 +92,22 @@ impl KitterApp {
         let click_order = visible_order;
         let reveal_path = skill.path.clone();
         let checkbox_name = storage_name.clone();
+        let trigger_mode = self.model.library.trigger_mode_by_storage(&storage_name);
+        let trigger_label = self.tr("触发时机", "Trigger timing").to_string();
+        let trigger_choices = [
+            (
+                TriggerMode::FollowSkill,
+                self.tr("跟随技能", "Follow skill").to_string(),
+            ),
+            (
+                TriggerMode::Manual,
+                self.tr("手动触发", "Manual trigger").to_string(),
+            ),
+            (
+                TriggerMode::Automatic,
+                self.tr("自动触发", "Automatic trigger").to_string(),
+            ),
+        ];
         let checkbox = div()
             .id(ElementId::Name(
                 format!("select-skill-{storage_name}").into(),
@@ -204,7 +220,7 @@ impl KitterApp {
                     cx,
                 );
             }))
-            .context_menu(move |menu, _, _| {
+            .context_menu(move |menu, window, menu_cx| {
                 let install_app = context_app.clone();
                 let set_tags_app = context_app.clone();
                 let move_app = context_app.clone();
@@ -236,6 +252,36 @@ impl KitterApp {
                             });
                         }),
                 );
+                if !multi_selection {
+                    let trigger_app = context_app.clone();
+                    let trigger_storage = storage_name.clone();
+                    let trigger_label = trigger_label.clone();
+                    let trigger_choices = trigger_choices.clone();
+                    menu = menu.submenu_with_icon(
+                        Some(Icon::default().path("icons/clock-3.svg")),
+                        trigger_label,
+                        window,
+                        menu_cx,
+                        move |submenu, _, _| {
+                            trigger_choices
+                                .iter()
+                                .fold(submenu, |submenu, (mode, label)| {
+                                    let mode = *mode;
+                                    let app = trigger_app.clone();
+                                    let storage = trigger_storage.clone();
+                                    submenu.item(
+                                        PopupMenuItem::new(label.clone())
+                                            .checked(trigger_mode == mode)
+                                            .on_click(move |_, _, cx| {
+                                                let _ = app.update(cx, |this, cx| {
+                                                    this.set_skill_trigger_mode(&storage, mode, cx);
+                                                });
+                                            }),
+                                    )
+                                })
+                        },
+                    );
+                }
                 if !protected_selection {
                     menu = menu.item(
                         PopupMenuItem::new(move_group_label.clone())
@@ -2075,9 +2121,10 @@ impl KitterApp {
                                             .into_iter()
                                             .collect();
                                     this.delete_flow.confirmation =
-                                        Some(DeleteConfirmation::ProjectSkill {
+                                        Some(DeleteConfirmation::ProjectSkills {
                                             project: project_for_delete.clone(),
-                                            skill: skill_for_delete.clone(),
+                                            skills: vec![skill_for_delete.clone()],
+                                            batch: false,
                                         });
                                     this.open_delete_dialog(window, cx);
                                 }),

@@ -9,6 +9,7 @@ pub mod project;
 pub mod source;
 pub mod tags;
 pub mod text;
+mod trigger;
 
 #[cfg(feature = "desktop")]
 pub mod assets;

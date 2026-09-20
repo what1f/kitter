@@ -67,6 +67,10 @@ const MESSAGES: &[(&str, &str)] = &[
         "Update this skill in its original folder",
     ),
     (
+        "先将技能的触发时机设为跟随技能",
+        "Set trigger timing to Follow skill first",
+    ),
+    (
         "Kitter 内置 Skill 会随 Kitter 自动更新",
         "This built-in skill updates with Kitter",
     ),

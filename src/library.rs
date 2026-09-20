@@ -12,7 +12,7 @@ use walkdir::WalkDir;
 
 use crate::{
     AppConfig, SkillGroup, SkillOrigin, SkillRecord, SkillSource, SkillSourceRecord, SkillSummary,
-    config,
+    TriggerMode, config, trigger::TriggerSource,
 };
 
 pub const KITTER_SKILL_STORAGE: &str = "_kitter-builtin";
@@ -34,6 +34,14 @@ struct Registry {
     source_groups_migrated: bool,
     #[serde(default)]
     adopted_sources: HashMap<String, AdoptedSource>,
+    #[serde(default)]
+    trigger_overrides: HashMap<String, TriggerOverride>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct TriggerOverride {
+    mode: TriggerMode,
+    source: TriggerSource,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -177,6 +185,20 @@ impl SkillLibrary {
                 source.added_skills.sort();
             }
         }
+        if let Some(override_entry) = registry.trigger_overrides.get_mut(KITTER_SKILL_STORAGE) {
+            let builtin_source = TriggerSource {
+                skill_md: KITTER_SKILL_MD.to_string(),
+                openai_yaml: Some(KITTER_OPENAI_YAML.to_string()),
+            };
+            if override_entry.source != builtin_source {
+                override_entry.source = builtin_source;
+                changed = true;
+            }
+            override_entry
+                .source
+                .render(override_entry.mode)?
+                .write(&config.library_dir.join(KITTER_SKILL_STORAGE))?;
+        }
         let library = Self {
             config,
             registry,
@@ -195,6 +217,64 @@ impl SkillLibrary {
 
     pub fn data_dir(&self) -> &Path {
         &self.data_dir
+    }
+
+    pub fn trigger_mode_by_storage(&self, storage_name: &str) -> TriggerMode {
+        self.registry
+            .trigger_overrides
+            .get(storage_name)
+            .map(|entry| entry.mode)
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn trigger_source_by_storage(&self, storage_name: &str) -> Option<&TriggerSource> {
+        self.registry
+            .trigger_overrides
+            .get(storage_name)
+            .map(|entry| &entry.source)
+    }
+
+    pub fn set_trigger_mode_by_storage(
+        &mut self,
+        storage_name: &str,
+        mode: TriggerMode,
+    ) -> Result<()> {
+        let path = self.skill_path_by_storage(storage_name)?;
+        if self.is_linked_source(storage_name) {
+            bail!("此技能暂不支持更改触发时机");
+        }
+        let before = TriggerSource::read(&path)?;
+        let source = self
+            .registry
+            .trigger_overrides
+            .get(storage_name)
+            .map(|entry| entry.source.clone())
+            .unwrap_or_else(|| before.clone());
+        let rendered = source.render(mode)?;
+        let previous = self.registry.trigger_overrides.get(storage_name).cloned();
+        let result = (|| -> Result<()> {
+            rendered.write(&path)?;
+            if mode == TriggerMode::FollowSkill {
+                self.registry.trigger_overrides.remove(storage_name);
+            } else {
+                self.registry
+                    .trigger_overrides
+                    .insert(storage_name.to_string(), TriggerOverride { mode, source });
+            }
+            self.save()
+        })();
+        if let Err(error) = result {
+            before.write(&path)?;
+            if let Some(previous) = previous {
+                self.registry
+                    .trigger_overrides
+                    .insert(storage_name.to_string(), previous);
+            } else {
+                self.registry.trigger_overrides.remove(storage_name);
+            }
+            return Err(error);
+        }
+        Ok(())
     }
 
     pub fn list(&self) -> Result<Vec<SkillSummary>> {
@@ -358,6 +438,7 @@ impl SkillLibrary {
         }) {
             record.group_id = None;
         }
+        self.registry.trigger_overrides.remove(&storage_name);
         self.registry.skills.insert(storage_name, record);
         self.save()
     }
@@ -403,6 +484,9 @@ impl SkillLibrary {
             .as_ref()
             .map(|r| r.storage_name.clone())
             .unwrap_or_else(|| self.storage_name_for(&candidate.name, &identity));
+        if self.registry.trigger_overrides.contains_key(&storage) {
+            bail!("先将技能的触发时机设为跟随技能");
+        }
         let destination = self.config.library_dir.join(&storage);
         let already_points_here =
             destination.canonicalize().ok().as_ref() == Some(&candidate.source);
@@ -573,23 +657,34 @@ impl SkillLibrary {
             fs::remove_dir_all(&backup)?;
         }
         fs::rename(&destination, &backup)?;
-        match copy_tree(source, &destination) {
-            Ok(()) => {
-                fs::remove_dir_all(backup)?;
-                record.storage_name = storage_name.clone();
-                record.last_operated_at = operation_stamp();
-                self.registry.skills.insert(storage_name, record);
-                for project in affected_projects {
-                    self.config.touch_project(&project);
-                }
-                self.save()
+        let previous_registry = self.registry.clone();
+        let previous_config = self.config.clone();
+        let result = (|| -> Result<()> {
+            copy_tree(source, &destination)?;
+            if let Some(override_entry) = self.registry.trigger_overrides.get_mut(&storage_name) {
+                override_entry.source = TriggerSource::read(&destination)?;
+                override_entry
+                    .source
+                    .render(override_entry.mode)?
+                    .write(&destination)?;
             }
-            Err(error) => {
-                let _ = fs::remove_dir_all(&destination);
-                fs::rename(backup, destination)?;
-                Err(error)
+            record.storage_name = storage_name.clone();
+            record.last_operated_at = operation_stamp();
+            self.registry.skills.insert(storage_name, record);
+            for project in affected_projects {
+                self.config.touch_project(&project);
             }
+            self.save()
+        })();
+        if let Err(error) = result {
+            let _ = fs::remove_dir_all(&destination);
+            fs::rename(&backup, &destination)?;
+            self.registry = previous_registry;
+            self.config = previous_config;
+            return Err(error);
         }
+        fs::remove_dir_all(backup)?;
+        Ok(())
     }
 
     pub fn remove(&mut self, name: &str) -> Result<()> {
@@ -639,6 +734,7 @@ impl SkillLibrary {
         }
         self.registry.skills.remove(storage_name);
         self.registry.adopted_sources.remove(storage_name);
+        self.registry.trigger_overrides.remove(storage_name);
         if let Some(source) = self.registry.sources.get_mut(&source_key) {
             source.added_skills.retain(|skill| skill != &record.name);
         }
@@ -1011,7 +1107,7 @@ pub fn validate_name(name: &str) -> Result<()> {
     Ok(())
 }
 
-fn copy_tree(source: &Path, destination: &Path) -> Result<()> {
+pub(crate) fn copy_tree(source: &Path, destination: &Path) -> Result<()> {
     for entry in WalkDir::new(source).follow_links(false) {
         let entry = entry?;
         let relative = entry.path().strip_prefix(source)?;
@@ -1452,5 +1548,78 @@ mod tests {
 
         let reopened = SkillLibrary::open_in(data_dir).unwrap();
         assert_eq!(reopened.groups()[0].name, r"team\skills");
+    }
+
+    #[test]
+    fn trigger_override_survives_updates_and_follow_restores_the_new_source() {
+        let temp = tempfile::tempdir().unwrap();
+        let data_dir = temp.path().join("data");
+        let source = temp.path().join("source");
+        fixture_skill(&source, "demo");
+        fs::create_dir_all(source.join("agents")).unwrap();
+        fs::write(
+            source.join("agents/openai.yaml"),
+            "interface:\n  display_name: Original\n",
+        )
+        .unwrap();
+        let mut library = SkillLibrary::open_in(&data_dir).unwrap();
+        library
+            .import(
+                &source,
+                SkillRecord {
+                    name: "demo".into(),
+                    storage_name: String::new(),
+                    description: String::new(),
+                    origin: SkillOrigin::Local {
+                        path: source.clone(),
+                        source_root: None,
+                    },
+                    update_available: false,
+                    group_id: None,
+                    last_operated_at: 0,
+                },
+            )
+            .unwrap();
+
+        library
+            .set_trigger_mode_by_storage("demo", TriggerMode::Manual)
+            .unwrap();
+        let installed = library.skill_path_by_storage("demo").unwrap();
+        assert!(
+            fs::read_to_string(installed.join("SKILL.md"))
+                .unwrap()
+                .contains("disable-model-invocation: true")
+        );
+        assert!(
+            fs::read_to_string(installed.join("agents/openai.yaml"))
+                .unwrap()
+                .contains("allow_implicit_invocation: false")
+        );
+
+        let updated_skill = "---\nname: demo\ndescription: updated\n---\nUpdated body\n";
+        let updated_openai = "interface:\n  display_name: Updated\n";
+        fs::write(source.join("SKILL.md"), updated_skill).unwrap();
+        fs::write(source.join("agents/openai.yaml"), updated_openai).unwrap();
+        let record = library.record_by_storage("demo").unwrap();
+        library
+            .replace_by_storage(&source, "demo".into(), record)
+            .unwrap();
+        assert!(
+            fs::read_to_string(installed.join("SKILL.md"))
+                .unwrap()
+                .contains("disable-model-invocation: true")
+        );
+
+        library
+            .set_trigger_mode_by_storage("demo", TriggerMode::FollowSkill)
+            .unwrap();
+        assert_eq!(
+            fs::read_to_string(installed.join("SKILL.md")).unwrap(),
+            updated_skill
+        );
+        assert_eq!(
+            fs::read_to_string(installed.join("agents/openai.yaml")).unwrap(),
+            updated_openai
+        );
     }
 }

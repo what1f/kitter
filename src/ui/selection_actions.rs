@@ -1,6 +1,31 @@
 use super::*;
 
 impl KitterApp {
+    pub(super) fn set_skill_trigger_mode(
+        &mut self,
+        storage_name: &str,
+        mode: TriggerMode,
+        cx: &mut Context<Self>,
+    ) {
+        match self
+            .model
+            .library
+            .set_trigger_mode_by_storage(storage_name, mode)
+        {
+            Ok(()) => {
+                self.refresh(cx);
+                self.show_notice(self.tr("触发时机已更新", "Trigger timing updated"), cx);
+            }
+            Err(error) => {
+                eprintln!("Kitter: {error:#}");
+                self.show_notice(
+                    self.tr("无法更改触发时机", "Could not change trigger timing"),
+                    cx,
+                );
+            }
+        }
+    }
+
     pub(super) fn selected_skill(&self) -> Option<&SkillSummary> {
         let storage_name = self.skills_view.selection.primary()?;
         self.model

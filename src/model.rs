@@ -158,6 +158,15 @@ pub struct SkillRecord {
     pub last_operated_at: u64,
 }
 
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TriggerMode {
+    #[default]
+    FollowSkill,
+    Manual,
+    Automatic,
+}
+
 impl SkillRecord {
     pub fn identity_key(&self) -> String {
         self.origin.identity_key(&self.name)

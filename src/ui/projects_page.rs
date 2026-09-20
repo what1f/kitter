@@ -1,6 +1,424 @@
 use super::*;
 
+fn selected_project_skills(
+    rows: &[EffectiveSkillRow],
+    selected_names: &HashSet<String>,
+) -> Vec<ProjectSkill> {
+    rows.iter()
+        .filter(|row| !row.direct_installations.is_empty() && selected_names.contains(&row.name))
+        .map(|row| ProjectSkill {
+            name: row.name.clone(),
+            installations: row.direct_installations.clone(),
+        })
+        .collect()
+}
+
 impl KitterApp {
+    fn matches_project_skill_filter(&self, row: &EffectiveSkillRow) -> bool {
+        let Some(filter) = self.projects_view.batch_filter.as_ref() else {
+            return true;
+        };
+        self.model.skills.iter().any(|skill| {
+            skill.record.name == row.name
+                && row.direct_installations.iter().any(|installation| {
+                    same_file(
+                        &installation.path.join("SKILL.md"),
+                        &skill.path.join("SKILL.md"),
+                    )
+                })
+                && match filter {
+                    ProjectSkillFilter::Group(group) => {
+                        skill.record.group_id.as_ref() == Some(group)
+                    }
+                    ProjectSkillFilter::Tag(tag) => self
+                        .tags_flow
+                        .skills
+                        .matches_filter(skill_storage_name(skill), *tag),
+                }
+        })
+    }
+
+    fn project_skill_filter_control(&self, cx: &mut Context<Self>) -> Popover {
+        let p = self.palette();
+        let app = cx.entity().downgrade();
+        let groups = self.model.library.groups();
+        let tags = self
+            .tags_flow
+            .skills
+            .tags()
+            .iter()
+            .map(|tag| {
+                (
+                    tag.id,
+                    self.tags_flow
+                        .skills
+                        .path(tag.id)
+                        .unwrap_or_else(|| tag.name.clone()),
+                )
+            })
+            .collect::<Vec<_>>();
+        let selected = self.projects_view.batch_filter.clone();
+        let filter_tooltip = if selected.is_some() {
+            self.tr("更改筛选", "Change filter")
+        } else {
+            self.tr("筛选", "Filter")
+        }
+        .to_string();
+        let all_label = self.tr("全部技能", "All skills").to_string();
+        let group_label = self.tr("分组", "Groups").to_string();
+        let tag_label = self.tr("标签", "Tags").to_string();
+        Popover::new("project-skill-batch-filter")
+            .appearance(false)
+            .anchor(Anchor::TopRight)
+            .trigger(
+                Button::new("project-skill-batch-filter-trigger")
+                    .small()
+                    .custom(
+                        ButtonCustomVariant::new(cx)
+                            .color(rgba(0x00000000).into())
+                            .foreground(
+                                if selected.is_some() {
+                                    p.accent
+                                } else {
+                                    p.secondary
+                                }
+                                .into(),
+                            )
+                            .hover(p.hover.into()),
+                    )
+                    .h(px(CONTROL_HEIGHT))
+                    .w(px(CONTROL_HEIGHT))
+                    .rounded(px(RADIUS_CONTROL))
+                    .child(Self::icon(
+                        "icons/hash.svg",
+                        15.,
+                        if selected.is_some() {
+                            p.accent
+                        } else {
+                            p.secondary
+                        },
+                    ))
+                    .tooltip(filter_tooltip),
+            )
+            .content(move |_, _, popover_cx| {
+                let mut menu = div()
+                    .id("project-skill-filter-scroll")
+                    .w(px(220.))
+                    .max_h(px(360.))
+                    .overflow_y_scroll()
+                    .p(px(4.))
+                    .rounded(px(RADIUS_MENU))
+                    .border_1()
+                    .border_color(p.border)
+                    .bg(p.elevated)
+                    .shadow_lg();
+                let all_app = app.clone();
+                menu = menu.child(
+                    div()
+                        .id("project-skill-filter-all")
+                        .h(px(30.))
+                        .px(px(8.))
+                        .rounded(px(RADIUS_CONTROL))
+                        .flex()
+                        .items_center()
+                        .cursor_pointer()
+                        .bg(if selected.is_none() {
+                            p.selected
+                        } else {
+                            rgba(0x00000000)
+                        })
+                        .hover(move |row| row.bg(p.hover))
+                        .child(all_label.clone())
+                        .on_click(popover_cx.listener(move |_, _, _, cx| {
+                            let _ = all_app.update(cx, |this, cx| {
+                                this.projects_view.batch_filter = None;
+                                cx.notify();
+                            });
+                            cx.emit(DismissEvent);
+                        })),
+                );
+                if !groups.is_empty() {
+                    menu = menu.child(
+                        div()
+                            .px(px(8.))
+                            .pt(px(8.))
+                            .pb(px(3.))
+                            .text_size(px(11.))
+                            .text_color(p.muted)
+                            .child(group_label.clone()),
+                    );
+                }
+                for group in &groups {
+                    let filter = ProjectSkillFilter::Group(group.id.clone());
+                    let group_app = app.clone();
+                    let checked = selected.as_ref() == Some(&filter);
+                    menu = menu.child(
+                        div()
+                            .id(ElementId::Name(
+                                format!("project-skill-filter-group-{}", group.id).into(),
+                            ))
+                            .h(px(30.))
+                            .px(px(8.))
+                            .rounded(px(RADIUS_CONTROL))
+                            .flex()
+                            .items_center()
+                            .cursor_pointer()
+                            .bg(if checked {
+                                p.selected
+                            } else {
+                                rgba(0x00000000)
+                            })
+                            .hover(move |row| row.bg(p.hover))
+                            .child(group.name.clone())
+                            .on_click(popover_cx.listener(move |_, _, _, cx| {
+                                let _ = group_app.update(cx, |this, cx| {
+                                    this.projects_view.batch_filter = Some(filter.clone());
+                                    cx.notify();
+                                });
+                                cx.emit(DismissEvent);
+                            })),
+                    );
+                }
+                if !tags.is_empty() {
+                    menu = menu.child(
+                        div()
+                            .px(px(8.))
+                            .pt(px(8.))
+                            .pb(px(3.))
+                            .text_size(px(11.))
+                            .text_color(p.muted)
+                            .child(tag_label.clone()),
+                    );
+                }
+                for (id, name) in &tags {
+                    let filter = ProjectSkillFilter::Tag(*id);
+                    let tag_app = app.clone();
+                    let checked = selected.as_ref() == Some(&filter);
+                    menu = menu.child(
+                        div()
+                            .id(ElementId::Name(
+                                format!("project-skill-filter-tag-{id:?}").into(),
+                            ))
+                            .h(px(30.))
+                            .px(px(8.))
+                            .rounded(px(RADIUS_CONTROL))
+                            .flex()
+                            .items_center()
+                            .cursor_pointer()
+                            .bg(if checked {
+                                p.selected
+                            } else {
+                                rgba(0x00000000)
+                            })
+                            .hover(move |row| row.bg(p.hover))
+                            .child(name.clone())
+                            .on_click(popover_cx.listener(move |_, _, _, cx| {
+                                let _ = tag_app.update(cx, |this, cx| {
+                                    this.projects_view.batch_filter = Some(filter.clone());
+                                    cx.notify();
+                                });
+                                cx.emit(DismissEvent);
+                            })),
+                    );
+                }
+                menu
+            })
+    }
+
+    fn project_batch_controls(
+        &self,
+        open_project: &Path,
+        all_rows: &[EffectiveSkillRow],
+        visible_rows: &[EffectiveSkillRow],
+        cx: &mut Context<Self>,
+    ) -> Div {
+        let p = self.palette();
+        let selected = selected_project_skills(all_rows, &self.projects_view.batch_selected);
+        let selected_count = selected.len();
+        let selectable_names = visible_rows
+            .iter()
+            .filter(|row| !row.direct_installations.is_empty())
+            .map(|row| row.name.clone())
+            .collect::<Vec<_>>();
+        let all_selected = !selectable_names.is_empty()
+            && selectable_names
+                .iter()
+                .all(|name| self.projects_view.batch_selected.contains(name));
+        let visible_selected_count = selectable_names
+            .iter()
+            .filter(|name| self.projects_view.batch_selected.contains(*name))
+            .count();
+        let partially_selected = visible_selected_count > 0 && !all_selected;
+        let project = open_project.to_path_buf();
+        let global_scope = dirs::home_dir()
+            .as_ref()
+            .is_some_and(|home| home == open_project);
+        let select_all_label = if all_selected {
+            self.tr("取消全选", "Deselect all")
+        } else {
+            self.tr("全选当前结果", "Select visible")
+        }
+        .to_string();
+        let remove_label = if global_scope {
+            self.tr("从用户级目录移除", "Remove from user-level locations")
+        } else {
+            self.tr("从此项目移除", "Remove from project")
+        }
+        .to_string();
+        let select_first_label = self.tr("请先选择技能", "Select skills first").to_string();
+        let exit_label = self.tr("退出选择", "Exit selection").to_string();
+        let select_names = selectable_names.clone();
+        let mut controls = div().h(px(37.)).flex().items_center().gap(px(4.)).child(
+            div()
+                .h(px(CONTROL_HEIGHT))
+                .min_w(px(22.))
+                .px(px(4.))
+                .font_family(MONO)
+                .text_size(px(11.))
+                .text_color(if selected_count > 0 {
+                    p.secondary
+                } else {
+                    p.muted
+                })
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(selected_count.to_string()),
+        );
+        if !select_names.is_empty() {
+            controls = controls.child(
+                div()
+                    .id("project-batch-select-visible")
+                    .size(px(CONTROL_HEIGHT))
+                    .rounded(px(RADIUS_CONTROL))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .cursor_pointer()
+                    .hover(move |button| button.bg(p.hover))
+                    .child(
+                        div()
+                            .size(px(16.))
+                            .rounded(px(4.))
+                            .border_1()
+                            .border_color(if all_selected || partially_selected {
+                                p.text
+                            } else {
+                                p.border_strong
+                            })
+                            .bg(if all_selected || partially_selected {
+                                p.text
+                            } else {
+                                p.surface
+                            })
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .when(all_selected, |indicator| {
+                                indicator.child(Self::icon("icons/check.svg", 12., p.on_accent))
+                            })
+                            .when(partially_selected, |indicator| {
+                                indicator.child(
+                                    div().w(px(8.)).h(px(1.5)).rounded(px(1.)).bg(p.on_accent),
+                                )
+                            }),
+                    )
+                    .tooltip(move |window, cx| {
+                        Tooltip::new(select_all_label.clone()).build(window, cx)
+                    })
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        for name in &select_names {
+                            if all_selected {
+                                this.projects_view.batch_selected.remove(name);
+                            } else {
+                                this.projects_view.batch_selected.insert(name.clone());
+                            }
+                        }
+                        cx.notify();
+                    })),
+            );
+        }
+        controls
+            .child(self.project_skill_filter_control(cx))
+            .child(
+                div()
+                    .id("project-batch-remove")
+                    .size(px(CONTROL_HEIGHT))
+                    .rounded(px(RADIUS_CONTROL))
+                    .bg(if selected_count > 0 {
+                        p.danger_soft
+                    } else {
+                        rgba(0x00000000)
+                    })
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .cursor(if selected_count > 0 {
+                        CursorStyle::PointingHand
+                    } else {
+                        CursorStyle::Arrow
+                    })
+                    .child(Self::icon(
+                        "icons/trash.svg",
+                        15.,
+                        if selected_count > 0 {
+                            p.danger
+                        } else {
+                            p.muted
+                        },
+                    ))
+                    .tooltip(move |window, cx| {
+                        Tooltip::new(if selected_count > 0 {
+                            remove_label.clone()
+                        } else {
+                            select_first_label.clone()
+                        })
+                        .build(window, cx)
+                    })
+                    .when(selected_count > 0, |button| {
+                        button
+                            .hover(move |button| button.opacity(0.8))
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |this, _, window, cx| {
+                                    this.delete_flow.selected = selected
+                                        .iter()
+                                        .flat_map(|skill| {
+                                            unique_installation_paths(&skill.installations)
+                                        })
+                                        .collect();
+                                    this.delete_flow.confirmation =
+                                        Some(DeleteConfirmation::ProjectSkills {
+                                            project: project.clone(),
+                                            skills: selected.clone(),
+                                            batch: true,
+                                        });
+                                    this.open_delete_dialog(window, cx);
+                                }),
+                            )
+                    }),
+            )
+            .child(
+                div()
+                    .id("project-batch-cancel")
+                    .size(px(CONTROL_HEIGHT))
+                    .rounded(px(RADIUS_CONTROL))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .cursor_pointer()
+                    .hover(move |button| button.bg(p.hover))
+                    .child(Self::icon("icons/x.svg", 15., p.secondary))
+                    .tooltip(move |window, cx| Tooltip::new(exit_label.clone()).build(window, cx))
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.projects_view.batch_project = None;
+                        this.projects_view.batch_selected.clear();
+                        this.projects_view.batch_filter = None;
+                        cx.notify();
+                    })),
+            )
+    }
+
     fn project_skill_row(
         &self,
         effective: &EffectiveSkillRow,
@@ -28,18 +446,39 @@ impl KitterApp {
             installations: effective.direct_installations.clone(),
         };
         let can_delete = !installed_for_delete.installations.is_empty();
+        let batch_mode = self.projects_view.batch_project.as_deref() == Some(open_project);
+        let batch_checked = self.projects_view.batch_selected.contains(&name);
         let row_selector = format!("project-skill-{name}");
         let mut row = div()
             .id(ElementId::Name(row_selector.clone().into()))
             .debug_selector(move || row_selector)
             .w_full()
             .h(px(60.))
-            .px(px(4.))
+            .relative()
+            .px(px(32.))
             .border_b_1()
             .border_color(p.border)
             .flex()
             .items_center()
             .hover(move |row| row.bg(p.hover))
+            .when(batch_mode && can_delete, |row| {
+                row.child(
+                    div()
+                        .absolute()
+                        .left(px(8.))
+                        .top(px(0.))
+                        .bottom(px(0.))
+                        .flex()
+                        .items_center()
+                        .child(
+                            Checkbox::new(ElementId::Name(
+                                format!("batch-project-skill-{name}").into(),
+                            ))
+                            .tab_stop(false)
+                            .checked(batch_checked),
+                        ),
+                )
+            })
             .child(div().size(px(15.)).flex_none().child(Self::icon(
                 "icons/package.svg",
                 15.,
@@ -105,7 +544,19 @@ impl KitterApp {
                 self.effective_agent_badges(format!("project-{name}"), &effective.agents, cx)
                     .ml(px(12.)),
             );
-        if can_delete {
+        if batch_mode && can_delete {
+            let selected_name = name.clone();
+            row = row
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    if !this.projects_view.batch_selected.remove(&selected_name) {
+                        this.projects_view
+                            .batch_selected
+                            .insert(selected_name.clone());
+                    }
+                    cx.notify();
+                }));
+        } else if can_delete {
             let project_for_delete = open_project.to_path_buf();
             row = row.child(
                 self.danger_icon_button(
@@ -121,9 +572,10 @@ impl KitterApp {
                             unique_installation_paths(&installed_for_delete.installations)
                                 .into_iter()
                                 .collect();
-                        this.delete_flow.confirmation = Some(DeleteConfirmation::ProjectSkill {
+                        this.delete_flow.confirmation = Some(DeleteConfirmation::ProjectSkills {
                             project: project_for_delete.clone(),
-                            skill: installed_for_delete.clone(),
+                            skills: vec![installed_for_delete.clone()],
+                            batch: false,
                         });
                         this.open_delete_dialog(window, cx);
                     }),
@@ -294,6 +746,11 @@ impl KitterApp {
                             }),
                     )
                     .on_click(cx.listener(move |this, _, _, cx| {
+                        if this.projects_view.open_project.as_ref() != Some(&selected_path) {
+                            this.projects_view.batch_project = None;
+                            this.projects_view.batch_selected.clear();
+                            this.projects_view.batch_filter = None;
+                        }
                         this.projects_view.open_project = Some(selected_path.clone());
                         this.projects_view.global_project_view = false;
                         this.projects_view.selected_project_agent = None;
@@ -334,6 +791,13 @@ impl KitterApp {
                                     {
                                         this.projects_view.open_project = None;
                                         this.projects_view.global_project_view = true;
+                                    }
+                                    if this.projects_view.batch_project.as_ref()
+                                        == Some(&remove_path)
+                                    {
+                                        this.projects_view.batch_project = None;
+                                        this.projects_view.batch_selected.clear();
+                                        this.projects_view.batch_filter = None;
                                     }
                                     let _ = this.model.library.save();
                                     this.sync_project_select(window, cx);
@@ -399,6 +863,9 @@ impl KitterApp {
                     ),
             )
             .on_click(cx.listener(|this, _, _, cx| {
+                this.projects_view.batch_project = None;
+                this.projects_view.batch_selected.clear();
+                this.projects_view.batch_filter = None;
                 this.projects_view.global_project_view = true;
                 this.projects_view.selected_project_agent = None;
                 this.projects_view.project_agents_expanded = false;
@@ -502,13 +969,27 @@ impl KitterApp {
             } else {
                 self.context_estimate_panel(open_project, &estimates, cx)
             };
-            let effective_rows = effective_skill_rows(
+            let all_effective_rows = effective_skill_rows(
                 &estimates,
                 &project_skills,
                 self.projects_view.selected_project_agent,
             );
-            let skill_count = effective_rows.len();
-            let effective_rows = Arc::new(effective_rows);
+            let skill_count = all_effective_rows.len();
+            let batch_mode = self.projects_view.batch_project.as_deref() == Some(open_project);
+            let can_batch = batch_mode
+                || all_effective_rows
+                    .iter()
+                    .any(|row| !row.direct_installations.is_empty());
+            let visible_rows = if batch_mode {
+                all_effective_rows
+                    .iter()
+                    .filter(|row| self.matches_project_skill_filter(row))
+                    .cloned()
+                    .collect::<Vec<_>>()
+            } else {
+                all_effective_rows.clone()
+            };
+            let effective_rows = Arc::new(visible_rows);
             let mut skills = div()
                 .id("project-skills-scroll")
                 .debug_selector(|| "project-skills-scroll".into())
@@ -516,7 +997,7 @@ impl KitterApp {
                 .min_h_0()
                 .flex()
                 .flex_col()
-                .px(px(28.))
+                .px(px(0.))
                 .pt(px(14.))
                 .pb(px(28.));
             if effective_rows.is_empty() && !loading {
@@ -580,7 +1061,44 @@ impl KitterApp {
                 .iter()
                 .map(|plugin| plugin.skills.len())
                 .sum::<usize>();
-            let tabs = self.project_skills_tabs(skill_count, plugin_skill_count, cx);
+            let mut tabs = self
+                .project_skills_tabs(skill_count, plugin_skill_count, cx)
+                .child(div().flex_1());
+            if can_batch && self.projects_view.project_skills_tab == ProjectSkillsTab::Skills {
+                if batch_mode {
+                    tabs = tabs.child(self.project_batch_controls(
+                        open_project,
+                        &all_effective_rows,
+                        &effective_rows,
+                        cx,
+                    ));
+                } else {
+                    let batch_project_path = open_project.clone();
+                    let batch_label = self.tr("批量选择", "Select multiple").to_string();
+                    tabs = tabs.child(
+                        div().h(px(37.)).flex().items_center().child(
+                            div()
+                                .id("project-batch-toggle")
+                                .size(px(CONTROL_HEIGHT))
+                                .rounded(px(RADIUS_CONTROL))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .cursor_pointer()
+                                .hover(move |button| button.bg(p.hover))
+                                .child(Self::icon("icons/check.svg", 15., p.secondary))
+                                .tooltip(move |window, cx| {
+                                    Tooltip::new(batch_label.clone()).build(window, cx)
+                                })
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.projects_view.batch_project =
+                                        Some(batch_project_path.clone());
+                                    cx.notify();
+                                })),
+                        ),
+                    );
+                }
+            }
             let skills = match self.projects_view.project_skills_tab {
                 ProjectSkillsTab::Skills => skills,
                 ProjectSkillsTab::Plugins => self.effective_plugins_list(plugin_groups, cx),
@@ -718,5 +1236,53 @@ impl KitterApp {
             recent_panel,
             detail,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashSet, path::PathBuf};
+
+    use crate::{InstallTarget, ProjectSkillInstallation};
+
+    use super::{EffectiveSkillRow, selected_project_skills};
+
+    fn row(name: &str, paths: &[&str]) -> EffectiveSkillRow {
+        EffectiveSkillRow {
+            name: name.into(),
+            description: String::new(),
+            locations: Vec::new(),
+            built_in: false,
+            agents: Vec::new(),
+            manual_only: false,
+            direct_installations: paths
+                .iter()
+                .map(|path| ProjectSkillInstallation {
+                    target: InstallTarget::Universal,
+                    path: PathBuf::from(path),
+                    managed: true,
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn batch_removal_uses_only_the_selected_rows_direct_installations() {
+        let rows = vec![
+            row("selected", &["/project/.agents/skills/selected"]),
+            row("shadowed", &["/project/.claude/skills/shadowed"]),
+            row("external-only", &[]),
+        ];
+        let selected = HashSet::from(["selected".to_string(), "external-only".to_string()]);
+
+        let targets = selected_project_skills(&rows, &selected);
+
+        assert_eq!(targets.len(), 1);
+        assert_eq!(targets[0].name, "selected");
+        assert_eq!(targets[0].installations.len(), 1);
+        assert_eq!(
+            targets[0].installations[0].path,
+            PathBuf::from("/project/.agents/skills/selected")
+        );
     }
 }

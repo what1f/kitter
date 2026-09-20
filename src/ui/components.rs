@@ -404,6 +404,11 @@ impl KitterApp {
                     )
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.projects_view.project_skills_tab = tab;
+                        if tab == ProjectSkillsTab::Plugins {
+                            this.projects_view.batch_project = None;
+                            this.projects_view.batch_selected.clear();
+                            this.projects_view.batch_filter = None;
+                        }
                         cx.notify();
                     })),
             );
