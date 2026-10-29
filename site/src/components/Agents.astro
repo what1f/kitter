@@ -1,0 +1,206 @@
+---
+import { Image } from 'astro:assets';
+import art from '../assets/art/agents.png';
+import Icon from './Icon.astro';
+import { dicts, type Lang } from '../i18n';
+import { pluginDocs } from '../site';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = dicts[lang].agents;
+
+/* Arc layout in a 1200×720 box; the type case sits at the bottom center. */
+const W = 1200;
+const H = 620;
+const arc = [
+  { x: 110, y: 510, logo: 'claude', name: 'Claude Code' },
+  { x: 175, y: 320, logo: 'codex', name: 'Codex' },
+  { x: 300, y: 160, logo: 'cursor', name: 'Cursor' },
+  { x: 450, y: 60, logo: 'copilot', name: 'GitHub Copilot' },
+  { x: 750, y: 60, logo: 'opencode', name: 'OpenCode' },
+  { x: 900, y: 160, logo: 'antigravity', name: 'Antigravity' },
+  { x: 1025, y: 320, logo: 'grok', name: 'Grok' },
+  { x: 1090, y: 510, logo: 'pi', name: 'Pi' },
+];
+const more = [
+  { logo: 'amp', name: 'Amp' },
+  { logo: 'trae', name: 'Trae' },
+  { logo: 'droid', name: 'Droid' },
+  { logo: 'hermes', name: 'Hermes' },
+  { logo: 'openclaw', name: 'OpenClaw' },
+  { logo: 'omp', name: 'omp' },
+  { logo: 'dimagent', name: 'DimAgent' },
+];
+const anchor = (x: number) => ({ x: 600 + (x - 600) * 0.22, y: 470 });
+const wire = (p: { x: number; y: number }) => {
+  const a = anchor(p.x);
+  return `M ${p.x} ${p.y} C ${p.x} ${p.y + 120}, ${a.x} ${a.y - 160}, ${a.x} ${a.y}`;
+};
+const pos = (p: { x: number; y: number }) => `left:${(p.x / W) * 100}%;top:${(p.y / H) * 100}%`;
+---
+<section class="section agents">
+  <div class="wrap">
+    <div class="head">
+      <h2 class="title" data-reveal>{t.title.map((l, i) => <>{i > 0 && (lang === 'zh' ? '\u200b' : ' ')}<span>{l}</span></>)}</h2>
+      <p class="lede" data-reveal style="--delay: 80ms">
+        {t.lede[0]}<a class="inline" href={pluginDocs} rel="noopener">{t.lede[1]}</a>{t.lede[2]}
+      </p>
+    </div>
+
+    <div class="arc" data-reveal style="--delay: 120ms">
+      <svg class="wires" viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+        {arc.map((p, i) => (
+          <path class="wire" d={wire(p)} />
+        ))}
+      </svg>
+      <div class="case">
+        <Image class="art" src={art} alt="" widths={[600, 900, 1448]} sizes="(max-width: 900px) 80vw, 480px" />
+      </div>
+      {arc.map((p) => (
+        <div class="tile" style={pos(p)}>
+          <img src={`/logos/provider-${p.logo}.svg`} alt="" width="20" height="20" />
+          <span>{p.name}</span>
+        </div>
+      ))}
+    </div>
+
+    <div class="more" data-reveal style="--delay: 160ms">
+      {more.map((m) => (
+        <div class="chip">
+          <img src={`/logos/provider-${m.logo}.svg`} alt="" width="16" height="16" />
+          <span>{m.name}</span>
+        </div>
+      ))}
+      <a class="chip add" href={pluginDocs} rel="noopener">
+        <Icon name="plus" size={15} />
+        <span>{t.yours}</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .inline {
+    white-space: nowrap;
+    color: var(--teal-deep);
+    text-decoration: underline;
+    text-decoration-color: rgb(63 137 151 / 35%);
+    text-underline-offset: 4px;
+    transition: text-decoration-color var(--d-fast) var(--ease);
+  }
+
+  .inline:hover { text-decoration-color: currentColor; }
+
+  .arc {
+    position: relative;
+    max-width: 1100px;
+    margin: clamp(32px, 5vw, 56px) auto 0;
+    aspect-ratio: 1200 / 620;
+  }
+
+  .wires {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .wire {
+    fill: none;
+    stroke: rgb(21 24 26 / 16%);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .case {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 40%;
+    translate: -50% 0;
+  }
+
+  .case :global(.art) {
+    width: 100%;
+    filter: drop-shadow(0 30px 30px rgb(30 50 55 / 14%));
+  }
+
+  .tile {
+    position: absolute;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    height: 48px;
+    padding: 0 18px 0 14px;
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    font-weight: 550;
+    white-space: nowrap;
+    translate: -50% -50%;
+  }
+
+  .tile img { width: 20px; height: 20px; }
+
+  .more {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    max-width: 860px;
+    margin: 40px auto 0;
+  }
+
+  .chip {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    height: 34px;
+    padding: 0 12px 0 10px;
+    border-radius: 999px;
+    box-shadow: var(--ring);
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 500;
+  }
+
+  .chip img { width: 16px; height: 16px; }
+
+  .add {
+    color: var(--ink-3);
+    transition: color var(--d-fast) var(--ease), background-color var(--d-fast) var(--ease);
+  }
+
+  .add:hover {
+    color: var(--ink);
+    background: var(--surface);
+  }
+
+  @media (max-width: 900px) {
+    .arc {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      aspect-ratio: auto;
+    }
+
+    .wires { display: none; }
+
+    .case {
+      position: static;
+      order: 2;
+      width: min(420px, 80%);
+      margin-top: 24px;
+      translate: none;
+    }
+
+    .tile {
+      position: static;
+      height: 44px;
+      translate: none;
+    }
+
+    .more { margin-top: 24px; }
+  }
+</style>

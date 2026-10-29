@@ -1,0 +1,135 @@
+---
+import { Image } from 'astro:assets';
+import art from '../assets/art/effective.png';
+import { dicts, loads, project, TOKEN_WARNING, type Lang } from '../i18n';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = dicts[lang];
+const agents = loads.map((a) => ({ ...a, total: a.skills.reduce((n, s) => n + s.tokens, 0) }));
+const max = Math.max(...agents.map((a) => a.total));
+const fmt = (n: number) => n.toLocaleString('en-US');
+---
+<section class="section effective">
+  <div class="wrap grid">
+    <div class="copy">
+      <h2 class="title" data-reveal>{t.effective.title.map((l, i) => <>{i > 0 && (lang === 'zh' ? '​' : ' ')}<span>{l}</span></>)}</h2>
+      <p class="lede" data-reveal style="--delay: 80ms">{t.effective.lede}</p>
+      <div class="otter" data-reveal style="--delay: 140ms">
+        <Image class="art" src={art} alt="" widths={[480, 800]} sizes="(max-width: 900px) 70vw, 400px" />
+      </div>
+    </div>
+
+    <div class="panel" data-reveal style="--delay: 120ms">
+      <div class="proj">{project.name}</div>
+      <ul>
+        {agents.map((a) => (
+          <li>
+            <img src={`/logos/provider-${a.id}.svg`} alt="" width="20" height="20" />
+            <span class="name">{a.name}</span>
+            <span class="count">{a.skills.length} {t.effective.skills}</span>
+            <span class="bar"><i style={`width:${(a.total / max) * 100}%`}></i></span>
+            <span class:list={['tok', { heavy: a.total > TOKEN_WARNING }]}>{fmt(a.total)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: clamp(32px, 6vw, 88px);
+    align-items: center;
+  }
+
+  .otter {
+    width: min(380px, 80%);
+    margin-top: 32px;
+  }
+
+  .otter :global(.art) {
+    width: 100%;
+    filter: drop-shadow(0 30px 30px rgb(30 50 55 / 12%));
+  }
+
+  /* 20px corner, 8px inset, 12px rows: concentric. */
+  .panel {
+    padding: 8px;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  .proj {
+    padding: 14px 16px 10px;
+    font-weight: 600;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: grid;
+    grid-template-columns: 20px 8.5em 5.5em minmax(0, 1fr) 3.6em;
+    gap: 14px;
+    align-items: center;
+    height: 52px;
+    padding: 0 16px;
+    border-radius: 12px;
+    transition: background-color var(--d-fast) var(--ease);
+  }
+
+  li:hover { background: var(--well); }
+
+  .name {
+    font-weight: 550;
+    white-space: nowrap;
+  }
+
+  .count,
+  .tok {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tok { text-align: right; }
+  .tok.heavy { color: #b57a00; }
+
+  .bar {
+    height: 4px;
+    border-radius: 2px;
+    background: rgb(21 24 26 / 6%);
+  }
+
+  .bar i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--teal);
+  }
+
+  li:has(.heavy) .bar i { background: #e0a000; }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+    .otter { display: none; }
+  }
+
+  @media (max-width: 560px) {
+    li {
+      grid-template-columns: 20px minmax(0, 1fr) auto 3.6em;
+      gap: 12px;
+      padding: 0 12px;
+    }
+
+    .bar { display: none; }
+  }
+</style>

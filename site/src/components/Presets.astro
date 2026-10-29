@@ -1,0 +1,89 @@
+---
+import { Image } from 'astro:assets';
+import art from '../assets/art/presets.png';
+import { dicts, type Lang } from '../i18n';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = dicts[lang].presets;
+const rules = t.file.filter((l) => l.k === 'b').map((l) => l.t);
+const skills = ['frontend-design', 'ui-review', 'code-review', 'imagegen'];
+---
+<section class="section presets">
+  <div class="wrap">
+    <div class="head">
+      <h2 class="title" data-reveal>{t.title.map((l, i) => <>{i > 0 && (lang === 'zh' ? '\u200b' : ' ')}<span>{l}</span></>)}</h2>
+      <p class="lede" data-reveal style="--delay: 80ms">{t.lede}</p>
+    </div>
+    <div class="stage">
+      <div class="otter" data-reveal style="--delay: 120ms">
+        <Image class="art" src={art} alt="" widths={[600, 1000, 1448]} sizes="(max-width: 900px) 90vw, 560px" />
+      </div>
+      <div class="paper" data-reveal style="--delay: 220ms">
+        <div class="name">frontend</div>
+        <div class="chips">
+          {skills.map((n) => <span class="chip mono">{n}</span>)}
+        </div>
+        <ul>
+          {rules.map((r) => <li>{r}</li>)}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: clamp(8px, 2vw, 24px);
+    align-items: center;
+    max-width: 1080px;
+    margin: clamp(40px, 6vw, 72px) auto 0;
+  }
+
+  .otter :global(.art) {
+    width: 100%;
+    filter: drop-shadow(0 30px 30px rgb(30 50 55 / 12%));
+  }
+
+  .paper {
+    padding: 24px;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  .name { font-weight: 600; }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: var(--well);
+    box-shadow: var(--ring);
+    font-size: var(--fs-small);
+  }
+
+  ul {
+    margin: 22px 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--ink-2);
+    line-height: 2;
+  }
+
+  @media (max-width: 900px) {
+    .stage { grid-template-columns: 1fr; }
+    .otter { max-width: 520px; margin: 0 auto; }
+  }
+</style>

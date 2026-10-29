@@ -1,0 +1,20 @@
+{
+  "name": "@kitter/site",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.6.1",
+  "scripts": {
+    "dev": "astro dev --host 127.0.0.1",
+    "build": "astro build",
+    "preview": "astro preview --host 127.0.0.1",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "astro": "7.4.2",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "typescript": "^7.0.2"
+  }
+}

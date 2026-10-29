@@ -1,0 +1,30 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from './Nav.astro';
+import Hero from './Hero.astro';
+import Flow from './Flow.astro';
+import Shots from './Shots.astro';
+import Drift from './Drift.astro';
+import Effective from './Effective.astro';
+import Presets from './Presets.astro';
+import Agents from './Agents.astro';
+import Open from './Open.astro';
+import Footer from './Footer.astro';
+import type { Lang } from '../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+---
+<Base lang={lang}>
+  <Nav lang={lang} />
+  <main>
+    <Hero lang={lang} />
+    <Flow lang={lang} />
+    <Shots lang={lang} />
+    <Drift lang={lang} />
+    <Effective lang={lang} />
+    <Presets lang={lang} />
+    <Agents lang={lang} />
+    <Open lang={lang} />
+  </main>
+  <Footer lang={lang} />
+</Base>

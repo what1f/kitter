@@ -1,0 +1,246 @@
+---
+import { Image } from 'astro:assets';
+import icon from '../assets/brand/app-icon.png';
+import Icon from './Icon.astro';
+import { dicts, type Lang } from '../i18n';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = dicts[lang].flow;
+
+/* Skill identity colors, used only to trace a skill from the library to its targets. */
+const skills = [
+  { name: 'code-review', c: '#3f8997' },
+  { name: 'frontend-design', c: '#c4874a' },
+  { name: 'ui-review', c: '#6b7fb3' },
+  { name: 'release-notes', c: '#7f9a68' },
+];
+const sources = [
+  { id: 'local', icon: 'folder' },
+  { id: 'github', icon: 'github' },
+  { id: 'skills', icon: 'triangle' },
+  { id: 'plugin', logo: 'claude' },
+  { id: 'existing', icon: 'box' },
+] as const;
+const targets = [
+  { name: 'kitter', skills: [0, 1] },
+  { name: 'lankide', skills: [0, 2] },
+  { name: t.user, skills: [3] },
+];
+
+---
+<section class="section flow">
+  <div class="wrap">
+    <div class="head">
+      <h2 class="title" data-reveal>{t.title.map((l, i) => <>{i > 0 && (lang === 'zh' ? '​' : ' ')}<span>{l}</span></>)}</h2>
+      <p class="lede" data-reveal style="--delay: 80ms">{t.lede}</p>
+    </div>
+
+    <div class="board" data-flow data-reveal style="--delay: 120ms">
+      <svg class="wires" aria-hidden="true"></svg>
+
+      <ul class="card sources">
+        {sources.map((s) => (
+          <li data-src>
+            <span class="glyph">
+              {'logo' in s ? <img src={`/logos/provider-${s.logo}.svg`} alt="" width="18" height="18" /> : <Icon name={s.icon} size={18} />}
+            </span>
+            {t.sources[s.id]}
+          </li>
+        ))}
+      </ul>
+
+      <div class="card library" data-lib>
+        <div class="lib-head">
+          <Image src={icon} alt="" width={48} height={48} class="icon" />
+          Kitter
+        </div>
+        <ul>
+          {skills.map((s) => <li class="skill mono"><i style={`background:${s.c}`}></i>{s.name}</li>)}
+        </ul>
+      </div>
+
+      <div class="targets">
+        {targets.map((d) => (
+          <div class="card target" data-dst>
+            <div class="t-name">{d.name}</div>
+            {d.skills.map((i) => <div class="skill mono"><i style={`background:${skills[i].c}`}></i>{skills[i].name}</div>)}
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const NS = 'http://www.w3.org/2000/svg';
+  const draw = (board: HTMLElement) => {
+    const svg = board.querySelector('svg')!;
+    const lib = board.querySelector<HTMLElement>('[data-lib]')!;
+    const box = board.getBoundingClientRect();
+    svg.replaceChildren();
+    if (getComputedStyle(svg).display === 'none') return;
+    const L = lib.getBoundingClientRect();
+    const ly = L.top + L.height / 2 - box.top;
+    const line = (x1: number, y1: number, x2: number, y2: number) => {
+      const m = (x1 + x2) / 2;
+      const p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', `M ${x1} ${y1} C ${m} ${y1}, ${m} ${y2}, ${x2} ${y2}`);
+      svg.append(p);
+    };
+    const src = board.querySelector<HTMLElement>('.sources')!.getBoundingClientRect();
+    board.querySelectorAll<HTMLElement>('[data-src]').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      line(src.right - box.left, r.top + r.height / 2 - box.top, L.left - box.left, ly);
+    });
+    board.querySelectorAll<HTMLElement>('[data-dst]').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      line(L.right - box.left, ly, r.left - box.left, r.top + r.height / 2 - box.top);
+    });
+  };
+  document.querySelectorAll<HTMLElement>('[data-flow]').forEach((board) => {
+    new ResizeObserver(() => draw(board)).observe(board);
+  });
+</script>
+
+<style>
+  .board {
+    position: relative;
+    display: grid;
+    grid-template-columns: 260fr 160fr 260fr 160fr 260fr;
+    align-items: center;
+    max-width: 1100px;
+    margin: clamp(40px, 6vw, 72px) auto 0;
+  }
+
+  .wires {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .wires :global(path) {
+    fill: none;
+    stroke: rgb(21 24 26 / 18%);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Cards: 18px corner, 8px inset, 10px rows. */
+  .card {
+    position: relative;
+    border-radius: 18px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  .sources {
+    grid-column: 1;
+    display: grid;
+    padding: 8px;
+  }
+
+  .sources li {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    height: 64px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-weight: 550;
+    white-space: nowrap;
+  }
+
+  .glyph {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--well);
+    box-shadow: var(--ring);
+    color: var(--ink);
+  }
+
+  .library {
+    grid-column: 3;
+    padding: 8px;
+  }
+
+  .lib-head {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 12px 10px;
+    font-weight: 650;
+  }
+
+  .lib-head :global(.icon) {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    box-shadow: var(--ring);
+  }
+
+  .library .skill {
+    height: 48px;
+    padding: 0 12px;
+    border-radius: 10px;
+  }
+
+  .library .skill + .skill { box-shadow: 0 calc(var(--hairline) * -1) 0 var(--line); }
+
+  .skill {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: var(--fs-small);
+    white-space: nowrap;
+  }
+
+  .skill i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+  }
+
+  .targets {
+    grid-column: 5;
+    display: grid;
+    gap: 30px;
+  }
+
+  .target {
+    padding: 14px 16px 12px;
+  }
+
+  .t-name {
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .target .skill { height: 28px; color: var(--ink-2); }
+
+  @media (max-width: 900px) {
+    .board {
+      grid-template-columns: 1fr;
+      gap: 20px;
+      max-width: 420px;
+    }
+
+    .wires { display: none; }
+    .sources, .library, .targets { grid-column: 1; }
+    .sources { grid-template-columns: 1fr 1fr; }
+    .sources li { height: 52px; }
+    .targets { gap: 12px; }
+  }
+</style>

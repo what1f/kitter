@@ -1,0 +1,108 @@
+---
+import { Image } from 'astro:assets';
+import { dicts, type Lang } from '../i18n';
+import projectZh from '../assets/shots/project-effective-skills.zh-CN.png';
+import projectEn from '../assets/shots/project-effective-skills.en.png';
+import libraryZh from '../assets/shots/skill-library.zh-CN.png';
+import libraryEn from '../assets/shots/skill-library.en.png';
+import installZh from '../assets/shots/install-skill.zh-CN.png';
+import installEn from '../assets/shots/install-skill.en.png';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = dicts[lang].shots;
+const zh = lang === 'zh';
+const shots = [
+  { id: 'project', src: zh ? projectZh : projectEn },
+  { id: 'library', src: zh ? libraryZh : libraryEn },
+  { id: 'install', src: zh ? installZh : installEn },
+] as const;
+---
+<section class="shots" data-shots>
+  <div class="wrap">
+    <div class="seg" role="tablist" data-reveal>
+      {shots.map((s, i) => (
+        <button role="tab" aria-selected={i === 0 ? 'true' : 'false'} data-tab={s.id}>{t[s.id]}</button>
+      ))}
+    </div>
+    <div class="frame" data-reveal style="--delay: 80ms">
+      {shots.map((s, i) => (
+        <Image
+          class:list={['shot', { on: i === 0 }]}
+          data-shot={s.id}
+          src={s.src}
+          alt={t[s.id]}
+          widths={[800, 1252, 1800, 2504]}
+          sizes="(max-width: 1240px) 100vw, 1160px"
+          loading="lazy"
+        />
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-shots]').forEach((root) => {
+    const tabs = root.querySelectorAll<HTMLButtonElement>('[data-tab]');
+    tabs.forEach((tab) =>
+      tab.addEventListener('click', () => {
+        tabs.forEach((x) => x.setAttribute('aria-selected', String(x === tab)));
+        root.querySelectorAll<HTMLElement>('[data-shot]').forEach((img) => {
+          img.classList.toggle('on', img.dataset.shot === tab.dataset.tab);
+        });
+      }),
+    );
+  });
+</script>
+
+<style>
+  .shots { padding-bottom: clamp(24px, 4vw, 48px); }
+
+  /* 999px pill, 4px inset, pill tabs: concentric. */
+  .seg {
+    display: flex;
+    width: max-content;
+    gap: 2px;
+    margin: 0 auto;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgb(21 24 26 / 5%);
+  }
+
+  .seg button {
+    height: 34px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ink-2);
+    font-weight: 550;
+    cursor: pointer;
+    transition: background-color var(--d-fast) var(--ease), color var(--d-fast) var(--ease);
+  }
+
+  .seg button:hover { color: var(--ink); }
+
+  .seg button[aria-selected='true'] {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--ring);
+  }
+
+  /* The screenshots already carry their own window shadow and transparent margin. */
+  .frame {
+    display: grid;
+    max-width: 1160px;
+    margin: 20px auto 0;
+  }
+
+  .frame :global(.shot) {
+    grid-area: 1 / 1;
+    width: 100%;
+    height: auto;
+    opacity: 0;
+    transition: opacity 360ms var(--ease);
+  }
+
+  .frame :global(.shot.on) { opacity: 1; }
+</style>

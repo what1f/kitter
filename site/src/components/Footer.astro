@@ -1,0 +1,61 @@
+---
+import { Image } from 'astro:assets';
+import icon from '../assets/brand/app-icon.png';
+import { dicts, pathFor, type Lang } from '../i18n';
+import { repo, download } from '../site';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = dicts[lang];
+const other: Lang = lang === 'zh' ? 'en' : 'zh';
+---
+<footer class="foot">
+  <div class="wrap bar">
+    <a class="brand" href={pathFor(lang)} aria-label={t.nav.home}>
+      <Image src={icon} alt="" width={48} height={48} class="icon" />
+      <span>Kitter</span>
+    </a>
+    <nav class="links">
+      <a href={repo} rel="noopener">GitHub</a>
+      <a href={download}>{t.footer.releases}</a>
+      <a href={pathFor(other)} hreflang={dicts[other].htmlLang}>{t.nav.switchTo}</a>
+    </nav>
+  </div>
+</footer>
+
+<style>
+  .foot {
+    padding: 28px 0 40px;
+    border-top: var(--hairline) solid var(--line-strong);
+  }
+
+  .bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-weight: 600;
+  }
+
+  .brand :global(.icon) {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+  }
+
+  .links {
+    display: flex;
+    gap: 24px;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+
+  .links a:hover { color: var(--ink); }
+</style>

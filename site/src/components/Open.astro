@@ -1,0 +1,52 @@
+---
+import { Image } from 'astro:assets';
+import art from '../assets/art/cta.png';
+import Icon from './Icon.astro';
+import { dicts, type Lang } from '../i18n';
+import { repo, download } from '../site';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = dicts[lang].open;
+---
+<section class="section open">
+  <div class="wrap head">
+    <div class="otter" data-reveal>
+      <Image class="art" src={art} alt="" widths={[480, 800, 1448]} sizes="(max-width: 900px) 70vw, 440px" />
+    </div>
+    <h2 class="title" data-reveal style="--delay: 80ms">{t.title}</h2>
+    <p class="lede" data-reveal style="--delay: 140ms">{t.lede}</p>
+    <div class="actions" data-reveal style="--delay: 200ms">
+      <a class="btn btn-primary" href={repo} rel="noopener">
+        <Icon name="github" />
+        {t.star}
+      </a>
+      <a class="btn btn-ghost" href={download}>
+        <Icon name="download" />
+        {t.download}
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .open { padding-top: clamp(72px, 10vw, 120px); }
+
+  .otter {
+    width: min(440px, 76%);
+    margin: 0 auto 40px;
+  }
+
+  .otter :global(.art) {
+    width: 100%;
+    filter: drop-shadow(0 30px 30px rgb(30 50 55 / 12%));
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 32px;
+  }
+</style>

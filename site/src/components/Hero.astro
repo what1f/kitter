@@ -1,0 +1,80 @@
+---
+import { Image } from 'astro:assets';
+import art from '../assets/art/hero.png';
+import Icon from './Icon.astro';
+import { dicts, type Lang } from '../i18n';
+import { repo, download } from '../site';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = dicts[lang];
+---
+<section class="hero">
+  <div class="wrap grid">
+    <div class="copy">
+      <h1 class="title" data-reveal>
+        {t.hero.title.map((l, i) => <>{i > 0 && (lang === 'zh' ? '\u200b' : ' ')}<span>{l}</span></>)}
+      </h1>
+      <p class="lede" data-reveal style="--delay: 80ms">{t.hero.lede}</p>
+      <div class="actions" data-reveal style="--delay: 160ms">
+        <a class="btn btn-primary" href={download}>
+          <Icon name="download" />
+          {t.nav.download}
+        </a>
+        <a class="btn btn-ghost" href={repo} rel="noopener">
+          <Icon name="github" />
+          GitHub
+        </a>
+      </div>
+    </div>
+    <div class="stage" data-reveal style="--delay: 120ms">
+      <Image class="art" src={art} alt="" widths={[720, 1080, 1448]} sizes="(max-width: 900px) 100vw, 56vw" loading="eager" fetchpriority="high" />
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: min(100svh, 920px);
+    padding: calc(var(--nav-h) + 32px) 0 48px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: clamp(16px, 3vw, 40px);
+    align-items: center;
+  }
+
+  .copy { position: relative; z-index: 1; }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 36px;
+  }
+
+  .stage {
+    position: relative;
+    margin-right: calc(var(--gutter) * -1);
+  }
+
+  .stage :global(.art) {
+    width: 100%;
+    filter: drop-shadow(0 40px 40px rgb(30 50 55 / 12%));
+    /* The render is cropped at the drawer; let it dissolve instead. */
+    mask-image: linear-gradient(to right, #000 82%, transparent), linear-gradient(to bottom, #000 84%, transparent);
+    mask-composite: intersect;
+    -webkit-mask-composite: source-in;
+  }
+
+  @media (max-width: 900px) {
+    .hero { min-height: 0; padding-top: calc(var(--nav-h) + 48px); }
+    .grid { grid-template-columns: 1fr; }
+    .stage { margin: 24px auto 0; max-width: 640px; }
+  }
+</style>

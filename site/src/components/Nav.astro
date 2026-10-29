@@ -1,0 +1,97 @@
+---
+import { Image } from 'astro:assets';
+import icon from '../assets/brand/app-icon.png';
+import Icon from './Icon.astro';
+import { dicts, pathFor, type Lang } from '../i18n';
+import { repo, download } from '../site';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = dicts[lang].nav;
+const other: Lang = lang === 'zh' ? 'en' : 'zh';
+---
+<header class="nav" data-nav>
+  <div class="wrap bar">
+    <a class="brand" href={pathFor(lang)} aria-label={t.home}>
+      <Image src={icon} alt="" width={64} height={64} class="icon" />
+      <span>Kitter</span>
+    </a>
+    <nav class="links">
+      <a class="link" href={pathFor(other)} hreflang={dicts[other].htmlLang} lang={dicts[other].htmlLang} title={t.switchTo}>{t.switchShort}</a>
+      <a class="link" href={repo} rel="noopener">
+        <Icon name="github" size={17} />
+        <span class="hide-sm">{t.github}</span>
+      </a>
+      <a class="btn btn-primary btn-sm" href={download}>
+        <Icon name="download" />
+        {t.download}
+      </a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .nav {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 50;
+    height: var(--nav-h);
+    transition: background-color var(--d-base) var(--ease), box-shadow var(--d-base) var(--ease);
+  }
+
+  .nav[data-scrolled] {
+    background: var(--canvas);
+    box-shadow: 0 var(--hairline) 0 var(--line-strong);
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+  }
+
+  .brand {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: var(--fs-body);
+    font-weight: 650;
+  }
+
+  .brand :global(.icon) {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    box-shadow: var(--ring);
+  }
+
+  .links {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .link {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 999px;
+    color: var(--ink-2);
+    font-weight: 500;
+    transition: color var(--d-fast) var(--ease), background-color var(--d-fast) var(--ease);
+  }
+
+  .link:hover {
+    color: var(--ink);
+    background: rgb(21 24 26 / 5%);
+  }
+
+  .links .btn { margin-left: 6px; }
+
+  @media (max-width: 560px) {
+    .hide-sm { display: none; }
+  }
+</style>
