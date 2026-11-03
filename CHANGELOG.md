@@ -7,6 +7,7 @@
 - Added a data location setting and `kitter data`. Move skills, presets, and settings to another folder, or switch to Kitter data copied from elsewhere.
 - Skills from skills.sh and GitHub can now be added and updated with Git when Node.js is not installed.
 - The Kitter skill now installs the Windows CLI to `%USERPROFILE%\.local\bin`.
+- Fixed presets with files in subfolders failing on Windows.
 - Removed `kitter library --set`. Use `kitter data --set` instead.
 
 Update the desktop app and the CLI together. After you move your data, older versions cannot find it.

@@ -75,7 +75,16 @@ impl PresetStore {
             if entry.file_type().is_dir() {
                 continue;
             }
-            let relative = entry.path().strip_prefix(&root)?.to_path_buf();
+            // Preset paths always use '/', also on Windows.
+            let relative = PathBuf::from(
+                entry
+                    .path()
+                    .strip_prefix(&root)?
+                    .components()
+                    .map(|part| part.as_os_str().to_string_lossy())
+                    .collect::<Vec<_>>()
+                    .join("/"),
+            );
             validate_path(&relative)?;
             checked_path(&root, &relative)?;
             self.read_file(id, &relative)?;
