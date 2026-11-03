@@ -119,7 +119,7 @@ const en: Dict = {
 };
 
 export const dicts: Record<Lang, Dict> = { zh, en };
-export const pathFor = (lang: Lang) => (lang === 'zh' ? '/' : '/en/');
+export const pathFor = (lang: Lang) => (lang === 'en' ? '/' : '/zh/');
 
 /* Illustrative project for the effective-skills panel. */
 type Scope = 'project' | 'parent' | 'user' | 'plugin';

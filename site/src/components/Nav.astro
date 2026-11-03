@@ -17,7 +17,7 @@ const other: Lang = lang === 'zh' ? 'en' : 'zh';
       <span>Kitter</span>
     </a>
     <nav class="links">
-      <a class="link" href={pathFor(other)} hreflang={dicts[other].htmlLang} lang={dicts[other].htmlLang} title={t.switchTo}>{t.switchShort}</a>
+      <a class="link" href={pathFor(other)} data-lang={other} hreflang={dicts[other].htmlLang} lang={dicts[other].htmlLang} title={t.switchTo}>{t.switchShort}</a>
       <a class="link" href={repo} rel="noopener">
         <Icon name="github" size={17} />
         <span class="hide-sm">{t.github}</span>

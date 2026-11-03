@@ -22,6 +22,7 @@ const canonical = new URL(pathFor(lang), Astro.site);
     <meta name="description" content={t.meta.description} />
     <link rel="canonical" href={canonical} />
     <link rel="alternate" hreflang={dicts[other].htmlLang} href={new URL(pathFor(other), Astro.site)} />
+    <link rel="alternate" hreflang="x-default" href={new URL(pathFor('en'), Astro.site)} />
     <link rel="icon" type="image/png" href={favicon.src} />
     <link rel="apple-touch-icon" href={touch.src} />
     <meta name="theme-color" content="#f2f4f4" />
@@ -31,6 +32,19 @@ const canonical = new URL(pathFor(lang), Astro.site);
     <meta property="og:url" content={canonical} />
     <meta name="twitter:card" content="summary_large_image" />
     <script is:inline>document.documentElement.classList.add('js');</script>
+    {lang === 'en' && (
+      <script is:inline>
+        // First visit with a Chinese browser goes to /zh/; a manual language choice always wins.
+        try {
+          const saved = localStorage.getItem('lang');
+          const prefs = navigator.languages?.length ? navigator.languages : [navigator.language];
+          const first = prefs.find((l) => /^(zh|en)\b/i.test(l)) || '';
+          if (saved === 'zh' || (!saved && /^zh\b/i.test(first))) {
+            location.replace('/zh/' + location.search + location.hash);
+          }
+        } catch {}
+      </script>
+    )}
   </head>
   <body>
     <slot />
@@ -51,6 +65,12 @@ const canonical = new URL(pathFor(lang), Astro.site);
       const onScroll = () => nav?.toggleAttribute('data-scrolled', scrollY > 8);
       addEventListener('scroll', onScroll, { passive: true });
       onScroll();
+
+      document.querySelectorAll<HTMLAnchorElement>('a[data-lang]').forEach((a) =>
+        a.addEventListener('click', () => {
+          try { localStorage.setItem('lang', a.dataset.lang!); } catch {}
+        }),
+      );
     </script>
   </body>
 </html>

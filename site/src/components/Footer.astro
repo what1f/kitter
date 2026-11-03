@@ -18,7 +18,7 @@ const other: Lang = lang === 'zh' ? 'en' : 'zh';
     <nav class="links">
       <a href={repo} rel="noopener">GitHub</a>
       <a href={download}>{t.footer.releases}</a>
-      <a href={pathFor(other)} hreflang={dicts[other].htmlLang}>{t.nav.switchTo}</a>
+      <a href={pathFor(other)} data-lang={other} hreflang={dicts[other].htmlLang}>{t.nav.switchTo}</a>
     </nav>
   </div>
 </footer>
