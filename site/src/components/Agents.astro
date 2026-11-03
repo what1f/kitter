@@ -1,5 +1,5 @@
 ---
-import { Image } from 'astro:assets';
+import { Picture } from 'astro:assets';
 import art from '../assets/art/agents.png';
 import Icon from './Icon.astro';
 import { dicts, type Lang } from '../i18n';
@@ -54,7 +54,7 @@ const pos = (p: { x: number; y: number }) => `left:${(p.x / W) * 100}%;top:${(p.
         ))}
       </svg>
       <div class="case">
-        <Image class="art" src={art} alt="" widths={[600, 900, 1448]} sizes="(max-width: 900px) 80vw, 480px" />
+        <Picture formats={['avif', 'webp']} class="art" src={art} alt="" widths={[600, 900, 1448]} sizes="(max-width: 900px) 80vw, 480px" />
       </div>
       {arc.map((p) => (
         <div class="tile" style={pos(p)}>

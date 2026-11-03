@@ -1,5 +1,5 @@
 ---
-import { Image } from 'astro:assets';
+import { Picture } from 'astro:assets';
 import art from '../assets/art/drift.png';
 import { dicts, type Lang } from '../i18n';
 
@@ -15,7 +15,7 @@ const t = dicts[lang].drift;
       <p class="lede" data-reveal style="--delay: 80ms">{t.lede}</p>
     </div>
     <div class="scene" data-reveal style="--delay: 120ms">
-      <Image class="art" src={art} alt="" widths={[800, 1200, 1672]} sizes="(max-width: 1240px) 100vw, 1200px" />
+      <Picture formats={['avif', 'webp']} class="art" src={art} alt="" widths={[800, 1200, 1672]} sizes="(max-width: 1240px) 100vw, 1200px" />
     </div>
   </div>
 </section>

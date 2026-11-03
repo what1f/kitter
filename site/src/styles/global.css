@@ -1,24 +1,8 @@
-@font-face {
-  font-family: 'Kitter Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts/mono-regular.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Kitter Mono';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('/fonts/mono-bold.woff2') format('woff2');
-}
-
 /* A quiet misty canvas, tactile 3D objects, and real brand colors.
    Teal comes from the app icon and is used sparingly. */
 :root {
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', 'Kitter Mono', Menlo, monospace;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --d-fast: 140ms;
@@ -88,6 +72,7 @@ body {
 }
 
 img, svg { display: block; max-width: 100%; }
+picture { display: contents; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; }
 ::selection { background: var(--teal-soft); }

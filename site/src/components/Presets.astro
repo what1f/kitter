@@ -1,5 +1,5 @@
 ---
-import { Image } from 'astro:assets';
+import { Picture } from 'astro:assets';
 import art from '../assets/art/presets.png';
 import { dicts, type Lang } from '../i18n';
 
@@ -17,7 +17,7 @@ const skills = ['frontend-design', 'ui-review', 'code-review', 'imagegen'];
     </div>
     <div class="stage">
       <div class="otter" data-reveal style="--delay: 120ms">
-        <Image class="art" src={art} alt="" widths={[600, 1000, 1448]} sizes="(max-width: 900px) 90vw, 560px" />
+        <Picture formats={['avif', 'webp']} class="art" src={art} alt="" widths={[600, 1000, 1448]} sizes="(max-width: 900px) 90vw, 560px" />
       </div>
       <div class="paper" data-reveal style="--delay: 220ms">
         <div class="name">frontend</div>

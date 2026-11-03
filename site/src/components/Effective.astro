@@ -1,5 +1,5 @@
 ---
-import { Image } from 'astro:assets';
+import { Picture } from 'astro:assets';
 import art from '../assets/art/effective.png';
 import { dicts, loads, project, TOKEN_WARNING, type Lang } from '../i18n';
 
@@ -16,7 +16,7 @@ const fmt = (n: number) => n.toLocaleString('en-US');
       <h2 class="title" data-reveal>{t.effective.title.map((l, i) => <>{i > 0 && (lang === 'zh' ? '​' : ' ')}<span>{l}</span></>)}</h2>
       <p class="lede" data-reveal style="--delay: 80ms">{t.effective.lede}</p>
       <div class="otter" data-reveal style="--delay: 140ms">
-        <Image class="art" src={art} alt="" widths={[480, 800]} sizes="(max-width: 900px) 70vw, 400px" />
+        <Picture formats={['avif', 'webp']} class="art" src={art} alt="" widths={[480, 800]} sizes="(max-width: 900px) 70vw, 400px" />
       </div>
     </div>
 
