@@ -13,6 +13,7 @@ use walkdir::WalkDir;
 
 use crate::{SkillLibrary, SkillOrigin, SkillRecord};
 
+mod git_source;
 pub(crate) mod local;
 pub(crate) mod remote;
 mod updates;
@@ -36,6 +37,8 @@ enum ScanOrigin {
 pub struct SkillScan {
     origin: ScanOrigin,
     skills: Vec<ScannedSkill>,
+    /// Update sources of a git scan; npx scans read them from the lock file.
+    git_sources: Option<git_source::Sources>,
     _temp: Option<TempDir>,
 }
 
@@ -113,15 +116,17 @@ impl SkillScan {
         let SkillScan {
             origin,
             skills,
+            mut git_sources,
             _temp: scan_temp,
         } = self;
+        let from_lock = matches!(origin, ScanOrigin::Npx { .. }) && git_sources.is_none();
         let discovered_skills = skills
             .iter()
             .map(|skill| skill.name.clone())
             .collect::<Vec<_>>();
         // The scan already downloaded a complete snapshot. Import from that
         // snapshot only; update workspaces are prepared lazily by update flows.
-        let mut scan_hashes = if matches!(origin, ScanOrigin::Npx { .. }) {
+        let mut scan_hashes = if from_lock {
             npx_lock_hashes(
                 scan_temp
                     .as_ref()
@@ -131,7 +136,7 @@ impl SkillScan {
         } else {
             HashMap::new()
         };
-        let mut scan_sources = if matches!(origin, ScanOrigin::Npx { .. }) {
+        let mut scan_sources = if from_lock {
             npx_lock_entries(
                 scan_temp
                     .as_ref()
@@ -225,6 +230,11 @@ impl SkillScan {
                 && let Some(source) = entry.remote_source(repository)
             {
                 library.set_remote_skill_source(identity, source)?;
+            } else if let Some(source) = git_sources
+                .as_mut()
+                .and_then(|sources| sources.remove(&name))
+            {
+                library.set_remote_skill_source(identity, source)?;
             }
             added_skills.push(name);
         }
@@ -297,12 +307,44 @@ pub fn scan_local(root: &Path) -> Result<SkillScan> {
             label: root.display().to_string(),
         },
         skills,
+        git_sources: None,
         _temp: None,
     })
 }
 
 pub fn scan_npx(input: &str) -> Result<SkillScan> {
     let repository = normalize_npx_source(input)?;
+    match git_source::Fetcher::detect()? {
+        git_source::Fetcher::Npx => scan_with_npx(repository),
+        git_source::Fetcher::Git => scan_with_git(repository),
+    }
+}
+
+fn scan_with_git(repository: String) -> Result<SkillScan> {
+    let target = git_source::parse_target(&repository)?;
+    let temp = TempDir::new()?;
+    let checkout = temp.path().join("repo");
+    git_source::checkout(&target.source, &checkout)?;
+    let mut skills = Vec::new();
+    let mut sources = git_source::Sources::new();
+    for (skill, source) in git_source::discover(&checkout, &target.source, target.skill.as_deref())?
+    {
+        sources.insert(skill.name.clone(), source);
+        skills.push(skill);
+    }
+    if skills.is_empty() {
+        crate::user_bail!("errors.source_address_empty");
+    }
+    skills.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(SkillScan {
+        origin: ScanOrigin::Npx { repository },
+        skills,
+        git_sources: Some(sources),
+        _temp: Some(temp),
+    })
+}
+
+fn scan_with_npx(repository: String) -> Result<SkillScan> {
     let temp = TempDir::new()?;
     npx_add(temp.path(), &repository, "*")?;
     let root = temp.path().join(".agents/skills");
@@ -335,6 +377,7 @@ pub fn scan_npx(input: &str) -> Result<SkillScan> {
     Ok(SkillScan {
         origin: ScanOrigin::Npx { repository },
         skills,
+        git_sources: None,
         _temp: Some(temp),
     })
 }
@@ -364,6 +407,7 @@ pub fn scan_claude(input: &str) -> Result<SkillScan> {
     Ok(SkillScan {
         origin: ScanOrigin::Claude { plugin },
         skills,
+        git_sources: None,
         _temp: None,
     })
 }
@@ -440,6 +484,17 @@ fn update_record(library: &mut SkillLibrary, mut record: SkillRecord) -> Result<
         SkillOrigin::Builtin => crate::user_bail!("errors.builtin_update_managed"),
         SkillOrigin::Npx {
             repository, skill, ..
+        } if git_source::Fetcher::detect()? == git_source::Fetcher::Git => {
+            let path = update_with_git(library, &record, &repository, &skill, temp.path())?;
+            updated_origin = Some(SkillOrigin::Npx {
+                repository,
+                skill,
+                source_hash: None,
+            });
+            path
+        }
+        SkillOrigin::Npx {
+            repository, skill, ..
         } => {
             let workspace = npx_workspace_in(library.data_dir(), &repository);
             // Re-add exactly this skill. `skills update` can update the whole
@@ -507,6 +562,26 @@ fn update_record(library: &mut SkillLibrary, mut record: SkillRecord) -> Result<
     }
     record.update_available = false;
     library.replace_by_storage(&source, storage_name, record)
+}
+
+/// Check out the skill's recorded source and return its folder.
+fn update_with_git(
+    library: &SkillLibrary,
+    record: &SkillRecord,
+    repository: &str,
+    skill: &str,
+    temp: &Path,
+) -> Result<PathBuf> {
+    let source = match library.remote_skill_source(record) {
+        Some(source) => source.clone(),
+        None => match legacy_npx_source(library, repository, skill) {
+            Some(source) => source,
+            None => git_source::parse_target(repository)?.source,
+        },
+    };
+    let checkout = temp.join("repo");
+    git_source::checkout(&source, &checkout)?;
+    git_source::locate(&checkout, &source, skill)
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -1457,6 +1532,7 @@ printf 'call\n' >> "$KITTER_IMPORT_FIXTURE/calls"
                 description: "fresh".into(),
                 path: scanned_skill,
             }],
+            git_sources: None,
             _temp: Some(scan_temp),
         };
         let mut library = SkillLibrary::open_in(temp.path().join("data")).unwrap();

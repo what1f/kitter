@@ -114,14 +114,14 @@ impl KitterApp {
             return div().into_any_element();
         };
         let p = self.palette();
-        let base = div().w_full().rounded(px(R_MD)).overflow_hidden();
+        let base = div().w_full().rounded(px(r_md())).overflow_hidden();
         match row {
             AdoptionRow::Header(_) => base
-                .h(px(ROW_1))
+                .h(px(row_1()))
                 .px(px(8.))
                 .flex()
                 .items_center()
-                .text_size(px(FS_SMALL))
+                .text_size(px(fs_small()))
                 .text_color(p.secondary)
                 .child(self.source_label(&candidate.origin))
                 .into_any_element(),
@@ -166,8 +166,8 @@ impl KitterApp {
                             .flex_1()
                             .child(
                                 div()
-                                    .font_family(MONO)
-                                    .text_size(px(FS_BODY))
+                                    .font_family(mono())
+                                    .text_size(px(fs_body()))
                                     .truncate()
                                     .child(candidate.name.clone()),
                             )
@@ -175,8 +175,8 @@ impl KitterApp {
                                 div()
                                     .id(ElementId::Name(format!("adoption-source-{index}").into()))
                                     .mt(px(2.))
-                                    .font_family(MONO)
-                                    .text_size(px(FS_CAPTION))
+                                    .font_family(mono())
+                                    .text_size(px(fs_caption()))
                                     .text_color(p.muted)
                                     .truncate()
                                     .child(source_path)
@@ -188,7 +188,7 @@ impl KitterApp {
                     .child(
                         div()
                             .flex_shrink_0()
-                            .text_size(px(FS_CAPTION))
+                            .text_size(px(fs_caption()))
                             .text_color(p.muted)
                             .child(label),
                     )
@@ -212,9 +212,9 @@ impl KitterApp {
                     .flex()
                     .items_center()
                     .gap(px(4.))
-                    .border_b_1()
+                    .border_b(px(divider_w()))
                     .border_color(p.border)
-                    .text_size(px(FS_CAPTION))
+                    .text_size(px(fs_caption()))
                     .text_color(p.muted)
                     .cursor_pointer()
                     .child(Self::icon(
@@ -223,7 +223,7 @@ impl KitterApp {
                         } else {
                             "icons/chevron-right.svg"
                         },
-                        ICON_XS,
+                        icon_xs(),
                         p.muted,
                     ))
                     .child(t!("adoption.references").to_string())
@@ -267,8 +267,8 @@ impl KitterApp {
                 ))
                 .h(px(24.))
                 .px(px(22.))
-                .font_family(MONO)
-                .text_size(px(FS_CAPTION))
+                .font_family(mono())
+                .text_size(px(fs_caption()))
                 .text_color(p.muted)
                 .truncate()
                 .child(path)

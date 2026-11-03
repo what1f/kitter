@@ -72,6 +72,22 @@ export default defineAgent({
 
 支持在设置页或通过 `kitter agents` 命令进行安装、更新、启停和排序管理。
 
+### 自定义主题
+
+除了内置的默认与 Solid Glass 风格，桌面端还能加载你自己的主题。主题可以修改颜色、表面质感（渐变、纹理、图片边框）、圆角、字体、尺寸和图标，只写想改的部分即可（详见 [自定义主题](./docs/themes.zh-CN.md)）：
+
+```json
+{
+  "name": "Ocean",
+  "extends": "solid_glass",
+  "shape": { "radius_xl": 16 },
+  "light": { "colors": { "accent": "#0a7cff" } },
+  "dark": { "colors": { "accent": "#5fb0ff" } }
+}
+```
+
+主题可以是单个 JSON 文件，也可以是带上自己图标、字体和纹理 / 边框图片的文件夹。在设置页「风格」中切换，或使用 `kitter theme` 命令创建、校验、分享和切换主题。
+
 ---
 
 ## 安装 Kitter
@@ -183,15 +199,20 @@ npx skills add what1f/kitter --skill kitter
 
 ## 本地数据存储
 
-Kitter 将配置和来源记录保存在操作系统的应用数据目录，Skill 内容保存在仓库目录：
+Kitter 把 Skill、预设和设置都保存在同一个数据文件夹：
 
-| 平台 | 默认 Skill 仓库 |
+| 平台 | 默认数据文件夹 |
 | --- | --- |
-| **macOS** | `~/Library/Application Support/Kitter/skills` |
-| **Windows** | `%LOCALAPPDATA%\Kitter\skills` |
-| **Linux** | `$XDG_DATA_HOME/Kitter/skills` 或 `~/.local/share/Kitter/skills` |
+| **macOS** | `~/Library/Application Support/Kitter` |
+| **Windows** | `%LOCALAPPDATA%\Kitter` |
+| **Linux** | `$XDG_DATA_HOME/Kitter` 或 `~/.local/share/Kitter` |
 
-使用 `kitter library` 和 `kitter library --set /absolute/path` 查看或修改位置。
+想换个位置，可以在 **设置 → 数据** 中选择文件夹，或运行 `kitter data --set /absolute/path`：
+
+- 选择空文件夹：Kitter 会把数据移过去，并更新它安装过的 Skill。
+- 选择已有 Kitter 数据的文件夹（比如备份或同步过来的副本）：Kitter 会改用这份数据，当前数据留在原处。
+
+`kitter data` 可以查看当前使用的文件夹。
 
 ---
 

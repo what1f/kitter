@@ -319,13 +319,7 @@ impl KitterApp {
                 .group_hover(group.clone(), |handle| handle.opacity(1.))
                 .tab_index(0)
                 .focus_visible(|handle| handle.opacity(1.))
-                .child(div().flex().gap(px(2.)).children((0..2).map(|_| {
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(px(2.))
-                        .children((0..3).map(|_| div().size(px(3.)).rounded_full().bg(p.muted)))
-                })));
+                .child(kit::grip(p));
             let mut controls = div().flex().items_center().gap(px(8.));
             if state.busy.contains(&id) {
                 controls = controls.child(self.shell.spinner_accent.clone());
@@ -399,7 +393,11 @@ impl KitterApp {
                     row.child(
                         div()
                             .id(ElementId::Name(format!("agent-error-{key}").into()))
-                            .child(Self::icon("icons/triangle-alert.svg", ICON_SM, p.secondary))
+                            .child(Self::icon(
+                                "icons/triangle-alert.svg",
+                                icon_sm(),
+                                p.secondary,
+                            ))
                             .tooltip(move |window, cx| {
                                 Tooltip::new(message.clone()).build(window, cx)
                             }),
@@ -409,7 +407,7 @@ impl KitterApp {
                 .when_some(switch, |row, switch| row.child(switch))
                 .when_some(menu, |row, menu| row.child(menu))
                 .when(builtin && !managed, |row| {
-                    row.child(div().w(px(H_SM)).flex_none())
+                    row.child(div().w(px(h_sm())).flex_none())
                 });
             if !loaded {
                 card = card.child(row);
@@ -458,7 +456,7 @@ impl KitterApp {
                     cx.notify();
                 }))
                 .when_some(drop_position, |row, after| {
-                    let line = div().absolute().left_0().right_0().h(px(2.)).bg(p.accent);
+                    let line = kit::drop_line(p);
                     row.child(if after { line.bottom_0() } else { line.top_0() })
                 }),
             );
@@ -755,9 +753,9 @@ impl KitterApp {
                         .gap(px(12.))
                         .px(px(10.))
                         .py(px(12.))
-                        .rounded(px(R_MD))
+                        .rounded(px(r_md()))
                         .when(selectable && !pending, |row| {
-                            row.cursor_pointer().hover(|row| row.bg(p.hover))
+                            row.cursor_pointer().hover_fill(p)
                         })
                         .child(
                             Checkbox::new(ElementId::Name(format!("plugin-check-{index}").into()))
@@ -780,7 +778,7 @@ impl KitterApp {
                                     ))
                                     .child(Self::icon(
                                         "icons/triangle-alert.svg",
-                                        ICON_SM,
+                                        icon_sm(),
                                         p.secondary,
                                     ))
                                     .tooltip(move |window, cx| {
@@ -828,7 +826,7 @@ impl KitterApp {
                     kit::Size::Md,
                     !pending,
                 )
-                .child(Self::icon("icons/folder.svg", ICON_MD, p.secondary))
+                .child(Self::icon("icons/folder.svg", icon_md(), p.secondary))
                 .child(div().truncate().child(label))
                 .when(!pending, |button| {
                     button.on_click(
@@ -842,7 +840,7 @@ impl KitterApp {
         if let Some(error) = &state.error {
             form = form.child(
                 div()
-                    .text_size(px(FS_SMALL))
+                    .text_size(px(fs_small()))
                     .text_color(p.danger)
                     .child(error.clone()),
             );
@@ -950,7 +948,7 @@ impl KitterApp {
                     } else {
                         "icons/github.svg"
                     },
-                    ICON_SM,
+                    icon_sm(),
                     p.secondary,
                 ))
                 .on_click(cx.listener(move |_, _, _, cx| {
@@ -982,9 +980,9 @@ impl KitterApp {
                             .flex()
                             .gap(px(16.))
                             .justify_between()
-                            .text_size(px(FS_SMALL))
+                            .text_size(px(fs_small()))
                             .child(div().flex_none().text_color(p.muted).child(label))
-                            .child(div().min_w_0().truncate().font_family(MONO).child(value)),
+                            .child(div().min_w_0().truncate().font_family(mono()).child(value)),
                     );
                 }
             }

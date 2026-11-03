@@ -25,9 +25,9 @@ fn skill_count(
         )
     };
     kit::count(p, &value)
-        .font_family(FONT_UI)
-        .font_weight(FontWeight::MEDIUM)
-        .text_size(px(FS_CAPTION))
+        .font_family(font_ui())
+        .font_weight(weight_medium())
+        .text_size(px(fs_caption()))
         .h(px(16.))
         .min_w(px(16.))
         .px(px(4.))
@@ -171,7 +171,7 @@ impl KitterApp {
             ElementId::Name(format!("skill-{storage_name}").into()),
             selected,
         )
-        .min_h(px(ROW_2))
+        .min_h(px(row_2()))
         .my(px(1.))
         .ml(px(if nested { 12. } else { 0. }))
         .when(selection_mode, |row| row.child(checkbox))
@@ -181,7 +181,7 @@ impl KitterApp {
             } else {
                 "icons/package.svg"
             },
-            ICON_MD,
+            icon_md(),
             p.secondary,
         ))
         .child(
@@ -197,9 +197,9 @@ impl KitterApp {
                         .child(
                             div()
                                 .min_w_0()
-                                .font_family(MONO)
-                                .text_size(px(FS_BODY))
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_family(mono())
+                                .text_size(px(fs_body()))
+                                .font_weight(weight_medium())
                                 .truncate()
                                 .child(name.clone()),
                         )
@@ -224,7 +224,7 @@ impl KitterApp {
                         }),
                 )
                 .child(
-                    div().text_size(px(FS_SMALL)).text_color(p.muted).child(
+                    div().text_size(px(fs_small())).text_color(p.muted).child(
                         if dirs::home_dir()
                             .is_some_and(|home| self.skill_installed_at(skill, &home, cx))
                         {
@@ -283,7 +283,7 @@ impl KitterApp {
             let delete_app = context_app.clone();
             let mut menu = menu.min_w(px(210.)).item(
                 PopupMenuItem::new(install_label.clone())
-                    .icon(Icon::default().path("icons/download.svg"))
+                    .icon(Icon::default().path(KitterApp::icon_path("icons/download.svg")))
                     .on_click(move |_, window, cx| {
                         let _ = install_app.update(cx, |this, cx| {
                             this.open_install_dialog(window, cx);
@@ -292,7 +292,7 @@ impl KitterApp {
             );
             menu = menu.item(
                 PopupMenuItem::new(update_label.clone())
-                    .icon(Icon::default().path("icons/rotate-cw.svg"))
+                    .icon(Icon::default().path(KitterApp::icon_path("icons/rotate-cw.svg")))
                     .disabled(!update_enabled)
                     .on_click(move |_, _, cx| {
                         let _ = update_app.update(cx, |this, cx| {
@@ -307,13 +307,13 @@ impl KitterApp {
                 let reveal_path = reveal_path.clone();
                 menu = menu.item(
                     PopupMenuItem::new(reveal_label.clone())
-                        .icon(Icon::new(IconName::FolderOpen))
+                        .icon(Icon::default().path(KitterApp::icon_path("icons/folder-open.svg")))
                         .on_click(move |_, _, cx| cx.reveal_path(&reveal_path)),
                 );
             }
             menu = menu.item(
                 PopupMenuItem::new(set_tags_label.clone())
-                    .icon(Icon::default().path("icons/hash.svg"))
+                    .icon(Icon::default().path(KitterApp::icon_path("icons/hash.svg")))
                     .on_click(move |_, _, cx| {
                         let _ = set_tags_app.update(cx, |this, cx| {
                             let keys = this.selected_skill_keys();
@@ -327,7 +327,7 @@ impl KitterApp {
                 let trigger_label = trigger_label.clone();
                 let trigger_choices = trigger_choices.clone();
                 menu = menu.submenu_with_icon(
-                    Some(Icon::default().path("icons/clock-3.svg")),
+                    Some(Icon::default().path(KitterApp::icon_path("icons/clock-3.svg"))),
                     trigger_label,
                     window,
                     menu_cx,
@@ -355,7 +355,7 @@ impl KitterApp {
                 let preset_app = context_app.clone();
                 let preset_choices = preset_choices.clone();
                 menu = menu.submenu_with_icon(
-                    Some(Icon::default().path("icons/layers.svg")),
+                    Some(Icon::default().path(KitterApp::icon_path("icons/layers.svg"))),
                     preset_label.clone(),
                     window,
                     menu_cx,
@@ -385,7 +385,7 @@ impl KitterApp {
             if !protected_selection {
                 menu = menu.item(
                     PopupMenuItem::new(move_group_label.clone())
-                        .icon(Icon::new(IconName::Folder))
+                        .icon(Icon::default().path(KitterApp::icon_path("icons/folder.svg")))
                         .on_click(move |_, _, cx| {
                             let _ = move_app.update(cx, |this, cx| {
                                 let keys = this.selected_skill_keys();
@@ -427,7 +427,7 @@ impl KitterApp {
                 .is_empty();
         div()
             .id(ElementId::Name(id.to_string().into()))
-            .min_h(px(ROW_1 + 4.))
+            .min_h(px(row_1() + 4.))
             .pl(px(if id == "add-group-editor" { 0. } else { 22. }))
             .pr(px(6.))
             .flex()
@@ -438,7 +438,7 @@ impl KitterApp {
                 kit::input(p, &self.groups_flow.name_input)
                     .disabled(self.add_flow.task.is_some())
                     .small()
-                    .h(px(H_SM))
+                    .h(px(h_sm()))
                     .min_w_0()
                     .flex_1(),
             )
@@ -509,7 +509,7 @@ impl KitterApp {
             false,
         )
         .group(group_key.clone())
-        .h(px(ROW_1 + 4.))
+        .h(px(row_1() + 4.))
         .pr(px(4.))
         .cursor_default()
         .when(true, |row| {
@@ -521,7 +521,7 @@ impl KitterApp {
                 cx,
             )
         })
-        .child(Self::icon("icons/folder.svg", ICON_MD, p.secondary))
+        .child(Self::icon("icons/folder.svg", icon_md(), p.secondary))
         .child(
             div()
                 .id(ElementId::Name(
@@ -529,8 +529,8 @@ impl KitterApp {
                 ))
                 .min_w_0()
                 .flex_1()
-                .font_family(MONO)
-                .text_size(px(FS_BODY))
+                .font_family(mono())
+                .text_size(px(fs_body()))
                 .truncate()
                 .cursor_pointer()
                 .child(group_name)
@@ -598,7 +598,7 @@ impl KitterApp {
             .child(
                 kit::modal_body()
                     .pt(px(4.))
-                    .text_size(px(FS_BODY))
+                    .text_size(px(fs_body()))
                     .line_height(relative(1.5))
                     .child(t!("skills.delete_group_confirm", name = group.name).to_string())
                     .child(
@@ -662,7 +662,7 @@ impl KitterApp {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .text_size(px(FS_BODY))
+                    .text_size(px(fs_body()))
                     .text_color(p.muted)
                     .child(t!("skills.no_groups_yet").to_string()),
             );
@@ -680,7 +680,7 @@ impl KitterApp {
             )
             .mt(px(6.))
             .self_start()
-            .child(Self::icon("icons/plus.svg", ICON_SM, p.secondary))
+            .child(Self::icon("icons/plus.svg", icon_sm(), p.secondary))
             .child(t!("organize.new_group").to_string())
             .on_click(cx.listener(|this, _, window, cx| {
                 this.start_group_edit(GroupEdit::Create, window, cx);
@@ -741,7 +741,7 @@ impl KitterApp {
                 .pb(px(4.))
                 .flex()
                 .items_center()
-                .text_size(px(FS_SMALL))
+                .text_size(px(fs_small()))
                 .text_color(p.muted)
                 .child(div().min_w_0().flex_1().truncate().child(label))
                 .child(self.tag_filter_control(scope, cx)),
@@ -776,7 +776,7 @@ impl KitterApp {
                 "icons/hash.svg",
                 t!("common.tags").to_string(),
             )
-            .when(selected.is_some(), |button| button.bg(p.selected)),
+            .selected_fill(p, selected.is_some()),
         )
         .content(move |_, _, popover_cx| {
             let mut menu = kit::menu(p).w(px(220.));
@@ -899,7 +899,7 @@ impl KitterApp {
             ElementId::Name(format!("skill-group-{group_id}").into()),
             false,
         )
-        .h(px(ROW_1))
+        .h(px(row_1()))
         .mt(px(4.))
         .text_color(p.secondary)
         .when(true, |row| {
@@ -917,7 +917,7 @@ impl KitterApp {
             } else {
                 "icons/chevron-down.svg"
             },
-            ICON_SM,
+            icon_sm(),
             p.muted,
         ))
         .child(
@@ -930,9 +930,9 @@ impl KitterApp {
                 .child(
                     div()
                         .min_w_0()
-                        .font_family(MONO)
-                        .text_size(px(FS_BODY))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_family(mono())
+                        .text_size(px(fs_body()))
+                        .font_weight(weight_medium())
                         .truncate()
                         .child(group_label),
                 )
@@ -970,7 +970,7 @@ impl KitterApp {
             install_group_count,
             filtered,
         ))
-        .drag_over::<SkillDrag>(move |style, _, _, _| style.bg(p.selected))
+        .drag_over::<SkillDrag>(move |style, _, _, _| style.drop_fill(p))
         .on_drop(cx.listener(move |this, drag: &SkillDrag, _, cx| {
             this.assign_skill_group(drag.name.clone(), Some(drop_group_id.clone()), cx);
         }))
@@ -1004,7 +1004,7 @@ impl KitterApp {
                 .when(!install_group_skills.is_empty(), |menu| {
                     menu.item(
                         PopupMenuItem::new(install_group_label.clone())
-                            .icon(Icon::default().path("icons/download.svg"))
+                            .icon(Icon::default().path(KitterApp::icon_path("icons/download.svg")))
                             .on_click(move |_, window, cx| {
                                 let _ = install_app.update(cx, |this, cx| {
                                     let primary = this
@@ -1019,7 +1019,7 @@ impl KitterApp {
                 })
                 .item(
                     PopupMenuItem::new(update_group_label.clone())
-                        .icon(Icon::default().path("icons/rotate-cw.svg"))
+                        .icon(Icon::default().path(KitterApp::icon_path("icons/rotate-cw.svg")))
                         .disabled(!update_enabled)
                         .on_click(move |_, _, cx| {
                             let _ = update_app.update(cx, |this, cx| {
@@ -1034,7 +1034,7 @@ impl KitterApp {
                     !preset_skills.is_empty() && !preset_choices.is_empty(),
                     |menu| {
                         menu.submenu_with_icon(
-                            Some(Icon::default().path("icons/layers.svg")),
+                            Some(Icon::default().path(KitterApp::icon_path("icons/layers.svg"))),
                             preset_label.clone(),
                             window,
                             menu_cx,
@@ -1065,7 +1065,7 @@ impl KitterApp {
                 )
                 .item(
                     PopupMenuItem::new(rename_group_label.clone())
-                        .icon(Icon::default().path("icons/pencil.svg"))
+                        .icon(Icon::default().path(KitterApp::icon_path("icons/pencil.svg")))
                         .on_click(move |_, window, cx| {
                             let _ = rename_app.update(cx, |this, cx| {
                                 this.open_group_dialog(cx);
@@ -1256,15 +1256,8 @@ impl KitterApp {
         let selection_count = self.selected_skill_keys().len();
         let selection_order = Arc::<[String]>::from(selection_order);
         let visible_selection_order = Arc::clone(&selection_order);
-        let mut list = div()
+        let mut list = kit::pane(p)
             .w_full()
-            .min_w_0()
-            .min_h_0()
-            .h_full()
-            .flex_none()
-            .flex()
-            .flex_col()
-            .bg(p.surface)
             .child(
                 self.panel_header_content(
                     "skills-panel-window-drag",
@@ -1316,7 +1309,7 @@ impl KitterApp {
                         .flex()
                         .items_center()
                         .gap(px(2.))
-                        .text_size(px(FS_SMALL))
+                        .text_size(px(fs_small()))
                         .text_color(p.secondary)
                         .child(crate::i18n::tn(
                             "skills.selection_count",
@@ -1334,7 +1327,7 @@ impl KitterApp {
                             )
                             .h(px(24.))
                             .px(px(6.))
-                            .text_size(px(FS_SMALL))
+                            .text_size(px(fs_small()))
                             .child(t!("skills.select_all_short").to_string())
                             .on_click(cx.listener(
                                 move |this, _, _, cx| {
@@ -1355,7 +1348,7 @@ impl KitterApp {
                             )
                             .h(px(24.))
                             .px(px(6.))
-                            .text_size(px(FS_SMALL))
+                            .text_size(px(fs_small()))
                             .child(t!("skills.clear").to_string())
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.clear_skill_selection(cx);
@@ -1503,7 +1496,7 @@ impl KitterApp {
                 kit::chip(p)
                     .id(ElementId::Name(format!("skill-tag-{tag_id}").into()))
                     .cursor_pointer()
-                    .font_family(MONO)
+                    .font_family(mono())
                     .hover(move |label| label.bg(p.hover).text_color(p.text))
                     .child(format!("#{path}"))
                     .on_click(cx.listener(move |this, _, _, cx| {
@@ -1525,16 +1518,16 @@ impl KitterApp {
             ))
             .h(px(24.))
             .px(px(8.))
-            .rounded(px(R_SM))
+            .rounded(px(r_sm()))
             .flex()
             .items_center()
             .gap(px(4.))
-            .text_size(px(FS_SMALL))
+            .text_size(px(fs_small()))
             .text_color(p.secondary)
             .hover(move |button| button.bg(p.hover).text_color(p.text))
-            .styles(|styles| styles.selected(|style| style.bg(p.selected)))
+            .styles(|styles| styles.selected(|style| style.selected_fill(p, true)))
             .when(!has_assigned, |button| {
-                button.child(Self::icon("icons/plus.svg", ICON_XS, p.secondary))
+                button.child(Self::icon("icons/plus.svg", icon_xs(), p.secondary))
             })
             .child(if has_assigned {
                 t!("skills.edit").to_string()
@@ -1549,7 +1542,7 @@ impl KitterApp {
                     div()
                         .px(px(8.))
                         .py(px(8.))
-                        .text_size(px(FS_BODY))
+                        .text_size(px(fs_body()))
                         .text_color(p.muted)
                         .child(t!("common.no_tags_yet").to_string()),
                 );
@@ -1612,20 +1605,18 @@ impl KitterApp {
         let mut names = div().mt(px(20.)).flex().flex_col().gap(px(4.));
         for name in selected_names.iter().take(preview_count) {
             names = names.child(
-                div()
-                    .h(px(ROW_1))
+                kit::inset_box(p)
+                    .h(px(row_1()))
                     .px(px(10.))
-                    .rounded(px(R_MD))
                     .flex()
                     .items_center()
                     .gap(px(8.))
-                    .bg(p.raised)
-                    .child(Self::icon("icons/package.svg", ICON_SM, p.secondary))
+                    .child(Self::icon("icons/package.svg", icon_sm(), p.secondary))
                     .child(
                         div()
                             .min_w_0()
-                            .font_family(MONO)
-                            .text_size(px(FS_BODY))
+                            .font_family(mono())
+                            .text_size(px(fs_body()))
                             .truncate()
                             .child(name.clone()),
                     ),
@@ -1635,7 +1626,7 @@ impl KitterApp {
             names = names.child(
                 div()
                     .mt(px(4.))
-                    .text_size(px(FS_SMALL))
+                    .text_size(px(fs_small()))
                     .text_color(p.muted)
                     .child(
                         t!("skills.and_more", count = selection_count - preview_count).to_string(),
@@ -1718,15 +1709,17 @@ impl KitterApp {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .size(px(ICON_SM))
+                            .size(px(icon_sm()))
                             .child(self.shell.spinner_update.clone()),
                     )
                 })
                 .when(!updating, |button| {
                     button.child(
-                        Self::icon("icons/rotate-cw.svg", ICON_SM, p.secondary)
+                        div()
                             .id("update-skill-refresh")
-                            .debug_selector(|| "update-skill-refresh".to_string()),
+                            .debug_selector(|| "update-skill-refresh".to_string())
+                            .flex()
+                            .child(Self::icon("icons/rotate-cw.svg", icon_sm(), p.secondary)),
                     )
                 })
                 .child(t!("skills.update").to_string())
@@ -1797,7 +1790,7 @@ impl KitterApp {
                 px(14.),
                 &[TextRun {
                     len: description.len(),
-                    font: font(FONT_UI),
+                    font: font(font_ui()),
                     color: p.secondary.into(),
                     ..Default::default()
                 }],
@@ -1816,8 +1809,8 @@ impl KitterApp {
             && self.skills_view.expanded_description.as_deref() == Some(skill.record.name.as_str());
         let mut description_text = div()
             .relative()
-            .font_family(FONT_UI)
-            .text_size(px(FS_EMPH))
+            .font_family(font_ui())
+            .text_size(px(fs_emph()))
             .line_height(relative(1.5))
             .text_color(p.secondary)
             .child(description);
@@ -1825,26 +1818,7 @@ impl KitterApp {
             description_text = description_text
                 .line_clamp(DESCRIPTION_COLLAPSED_LINES)
                 .text_ellipsis()
-                .child(
-                    div()
-                        .absolute()
-                        .left(px(0.))
-                        .right(px(0.))
-                        .bottom(px(0.))
-                        .h(px(18.))
-                        .bg(linear_gradient(
-                            0.,
-                            linear_color_stop(p.base, 0.),
-                            linear_color_stop(p.base.opacity(0.), 1.),
-                        ))
-                        .group_hover("skill-description", |fade| {
-                            fade.bg(linear_gradient(
-                                0.,
-                                linear_color_stop(p.hover, 0.),
-                                linear_color_stop(p.hover.opacity(0.), 1.),
-                            ))
-                        }),
-                );
+                .child(kit::clamp_fade(p, "skill-description"));
         }
         let editing_description =
             self.skills_view.editing_description.as_deref() == Some(storage_name.as_str());
@@ -1871,9 +1845,9 @@ impl KitterApp {
                         .group("skill-description")
                         .mx(px(-6.))
                         .px(px(6.))
-                        .rounded(px(R_SM))
+                        .rounded(px(r_sm()))
                         .cursor_text()
-                        .hover(|this| this.bg(p.hover))
+                        .hover_fill(p)
                         .child(description_text)
                         .on_click(cx.listener(move |this, _, window, cx| {
                             this.start_description_edit(edit_storage_name.clone(), window, cx);
@@ -1900,7 +1874,7 @@ impl KitterApp {
                     .px(px(6.))
                     .ml(px(-6.))
                     .gap(px(4.))
-                    .text_size(px(FS_SMALL))
+                    .text_size(px(fs_small()))
                     .child(toggle_label)
                     .child(Self::icon(
                         if description_expanded {
@@ -1908,7 +1882,7 @@ impl KitterApp {
                         } else {
                             "icons/chevron-down.svg"
                         },
-                        ICON_XS,
+                        icon_xs(),
                         p.secondary,
                     ))
                     .on_mouse_down(
@@ -1939,7 +1913,7 @@ impl KitterApp {
                     .flex()
                     .items_center()
                     .gap(px(8.))
-                    .font_family(MONO)
+                    .font_family(mono())
                     .child(self.selectable_text(
                         "skill-detail-name",
                         100,
@@ -1970,11 +1944,7 @@ impl KitterApp {
             ))
             .child(description_section)
             .child(self.skill_tag_controls(&storage_name, cx));
-        let tabs = kit::tabs()
-            .h(px(44.))
-            .px(px(24.))
-            .border_b_1()
-            .border_color(p.border)
+        let tabs = kit::tab_bar(p)
             .child(self.tab_button(
                 "tab-installs",
                 t!("skills.installs").to_string(),
@@ -2103,12 +2073,12 @@ impl KitterApp {
                 card = card.child(
                     kit::card_row(p, index == 0)
                         .h(px(56.))
-                        .child(Self::icon("icons/folder.svg", ICON_MD, p.secondary))
+                        .child(Self::icon("icons/folder.svg", icon_md(), p.secondary))
                         .child(
                             div()
                                 .min_w_0()
                                 .flex_1()
-                                .child(div().font_family(MONO).text_size(px(FS_BODY)).child(
+                                .child(div().font_family(mono()).text_size(px(fs_body())).child(
                                     self.selectable_text(
                                         format!("install-project-name-{index}"),
                                         110 + index as u64 * 2,
@@ -2120,8 +2090,8 @@ impl KitterApp {
                                 .child(
                                     div()
                                         .mt(px(2.))
-                                        .font_family(MONO)
-                                        .text_size(px(FS_SMALL))
+                                        .font_family(mono())
+                                        .text_size(px(fs_small()))
                                         .text_color(p.muted)
                                         .child(self.selectable_text(
                                             format!("install-project-path-{index}"),
@@ -2172,12 +2142,9 @@ impl KitterApp {
         let p = self.palette();
         let snapshot = self.content_snapshot(skill);
         let files = &snapshot.files;
-        let mut tree = div()
+        let mut tree = kit::pane(p)
             .id("content-tree-scroll")
             .w(px(220.))
-            .h_full()
-            .flex_none()
-            .bg(p.surface)
             .py(px(8.))
             .track_scroll(&self.skills_view.content_tree_scroll)
             .overflow_y_scroll();
@@ -2216,26 +2183,13 @@ impl KitterApp {
             .h_full()
             .flex()
             .flex_col()
-            .child(
-                div()
-                    .h(px(40.))
-                    .px(px(16.))
-                    .border_b_1()
-                    .border_color(p.border)
-                    .bg(p.surface)
-                    .flex()
-                    .items_center()
-                    .font_family(MONO)
-                    .text_size(px(FS_SMALL))
-                    .text_color(p.secondary)
-                    .child(self.selectable_text(
-                        "content-selected-file",
-                        200,
-                        self.skills_view.selected_file.display().to_string(),
-                        window,
-                        cx,
-                    )),
-            )
+            .child(kit::file_bar(p).child(self.selectable_text(
+                "content-selected-file",
+                200,
+                self.skills_view.selected_file.display().to_string(),
+                window,
+                cx,
+            )))
             .child(
                 div()
                     .relative()
@@ -2253,8 +2207,8 @@ impl KitterApp {
                             .min_w_0()
                             .overflow_y_scroll()
                             .p(px(24.))
-                            .font_family(MONO)
-                            .text_size(px(FS_BODY))
+                            .font_family(mono())
+                            .text_size(px(fs_body()))
                             .line_height(relative(1.6))
                             .text_color(p.secondary)
                             .whitespace_normal()

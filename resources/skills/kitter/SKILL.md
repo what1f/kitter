@@ -1,6 +1,6 @@
 ---
 name: kitter
-description: Use Kitter CLI to manage a reusable skill library, add or adopt skill sources, install them globally or per project, inspect effective skills, organize the library, bundle skills and AGENTS.md instructions into presets, and maintain updates. Applies Kitter's minimal-global, project-first best practice.
+description: Use Kitter CLI to manage a reusable skill library, add or adopt skill sources, install them globally or per project, inspect effective skills, organize the library, bundle skills and AGENTS.md instructions into presets, maintain updates, and design desktop themes. Applies Kitter's minimal-global, project-first best practice.
 disable-model-invocation: true
 metadata:
   opencode:
@@ -18,7 +18,7 @@ The desktop app and CLI are separate release artifacts. This skill uses the stan
 Before doing any work, resolve the executable in this order:
 
 1. Resolve `kitter` from `PATH` (`Get-Command kitter` on Windows), and convert the result to an absolute path.
-2. If it is not on `PATH`, check the supported per-user install location: `~/.local/bin/kitter` on macOS or Linux, or `%LOCALAPPDATA%\Kitter\bin\kitter.exe` on Windows.
+2. If it is not on `PATH`, check the supported per-user install location: `~/.local/bin/kitter` on macOS or Linux, or `%USERPROFILE%\.local\bin\kitter.exe` on Windows (older installs may use `%LOCALAPPDATA%\Kitter\bin\kitter.exe`).
 3. Run the resolved executable with `--help` and confirm that it is the Kitter skill manager.
 
 The examples below use `kitter` for readability; when executing them, always use the absolute path you resolved.
@@ -187,6 +187,23 @@ kitter agents move <id> --before <id>
 ```
 
 Disabled Agents are hidden from project inspection and cannot be install targets. When the user needs an Agent that Kitter does not support, or wants to change a built-in one, read [references/agent-plugins.md](references/agent-plugins.md).
+
+## Desktop themes
+
+The desktop app's look comes from a theme: the built-in `standard` and `solid_glass`, or a theme file or theme package in the themes folder. A theme sets colours, surface finish, shapes, font, sizes and icons.
+
+```bash
+kitter theme
+kitter theme use <id>
+kitter theme create <id> --from solid_glass
+kitter theme check <id|path>
+kitter theme show <id>
+kitter theme icons --theme <id>
+kitter theme add <file-or-folder>
+kitter theme remove <id>
+```
+
+`use` takes effect after the desktop app restarts, or when the user picks the theme again in Settings → Style. When the user wants to design or adjust a theme, read [references/themes.md](references/themes.md).
 
 ## Common workflows
 
@@ -381,14 +398,19 @@ kitter remove skill-a
 
 External symlinks and real directories are preserved by default. Use `--include-unmanaged` for an exact path only after confirming that it should also be removed.
 
-## Change the library location
+## Change the data location
+
+Kitter keeps skills, presets, and settings in one data folder:
 
 ```bash
-kitter library
-kitter library --set /absolute/path/to/skills
+kitter data
+kitter data --set /absolute/path/to/folder
 ```
 
-`--set` selects a new library location but does not move the old library automatically. Move existing skills first, or be prepared to add and adopt them again in the new location.
+- An empty folder: Kitter moves the data there and updates the skills it installed. It lists any installations it could not update; install those again.
+- A folder that already holds Kitter data: Kitter switches to it and leaves the current data in place.
+
+Confirm with the user before running `--set`, because it changes where every later command reads and writes.
 
 For complete command options, use the relevant help command:
 

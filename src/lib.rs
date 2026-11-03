@@ -5,6 +5,7 @@ pub mod adoption;
 pub mod agent_plugins;
 pub mod agents;
 pub mod config;
+pub mod data_location;
 mod directory_link;
 pub mod effective_skills;
 pub mod i18n;
@@ -14,6 +15,7 @@ pub mod preset;
 pub mod project;
 pub mod source;
 pub mod tags;
+pub mod themes;
 mod trigger;
 
 #[cfg(feature = "desktop")]

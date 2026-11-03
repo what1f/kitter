@@ -17,15 +17,8 @@ impl KitterApp {
         for preset in presets {
             rows = rows.child(self.preset_list_row(preset, cx));
         }
-        let list = div()
+        let list = kit::pane(p)
             .w_full()
-            .min_w_0()
-            .min_h_0()
-            .h_full()
-            .flex_none()
-            .flex()
-            .flex_col()
-            .bg(p.surface)
             .child(
                 self.panel_header(
                     "presets-panel-window-drag",
@@ -78,14 +71,14 @@ impl KitterApp {
         let context_id = id.clone();
         kit::list_row(p, ElementId::Name(format!("preset-{id}").into()), selected)
             .my(px(1.))
-            .child(Self::icon("icons/layers.svg", ICON_MD, p.secondary))
+            .child(Self::icon("icons/layers.svg", icon_md(), p.secondary))
             .child(
                 div()
                     .min_w_0()
                     .flex_1()
-                    .font_family(MONO)
-                    .text_size(px(FS_BODY))
-                    .font_weight(FontWeight::MEDIUM)
+                    .font_family(mono())
+                    .text_size(px(fs_body()))
+                    .font_weight(weight_medium())
                     .truncate()
                     .child(preset.name.clone()),
             )
@@ -108,7 +101,7 @@ impl KitterApp {
                 menu.min_w(px(190.))
                     .item(
                         PopupMenuItem::new(rename_label.clone())
-                            .icon(Icon::default().path("icons/pencil.svg"))
+                            .icon(Icon::default().path(KitterApp::icon_path("icons/pencil.svg")))
                             .on_click(move |_, window, cx| {
                                 let _ = rename_app.update(cx, |this, cx| {
                                     this.open_preset_name_dialog(
@@ -121,7 +114,7 @@ impl KitterApp {
                     )
                     .item(
                         PopupMenuItem::new(install_label.clone())
-                            .icon(Icon::default().path("icons/download.svg"))
+                            .icon(Icon::default().path(KitterApp::icon_path("icons/download.svg")))
                             .on_click(move |_, window, cx| {
                                 let _ = install_app.update(cx, |this, cx| {
                                     this.open_preset_install_dialog(
@@ -159,7 +152,7 @@ impl KitterApp {
                         true,
                     )
                     .mt(px(16.))
-                    .child(Self::icon("icons/plus.svg", ICON_MD, p.secondary))
+                    .child(Self::icon("icons/plus.svg", icon_md(), p.secondary))
                     .child(t!("presets.new").to_string())
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.open_preset_name_dialog(PresetEdit::Create, window, cx);
@@ -205,17 +198,13 @@ impl KitterApp {
                 "icons/layers.svg",
                 div()
                     .min_w_0()
-                    .font_family(MONO)
+                    .font_family(mono())
                     .truncate()
                     .child(preset.name.clone()),
                 div(),
                 actions,
             ));
-        let tabs = kit::tabs()
-            .h(px(44.))
-            .px(px(24.))
-            .border_b_1()
-            .border_color(p.border)
+        let tabs = kit::tab_bar(p)
             .child(self.preset_tab_button(
                 "preset-tab-skills",
                 t!("common.skills").to_string(),
@@ -294,7 +283,7 @@ impl KitterApp {
                         } else {
                             "icons/package.svg"
                         },
-                        ICON_MD,
+                        icon_md(),
                         p.secondary,
                     ))
                     .child(
@@ -303,16 +292,16 @@ impl KitterApp {
                             .flex_1()
                             .child(
                                 div()
-                                    .font_family(MONO)
-                                    .text_size(px(FS_BODY))
+                                    .font_family(mono())
+                                    .text_size(px(fs_body()))
                                     .truncate()
                                     .child(skill.record.name.clone()),
                             )
                             .child(
                                 div()
                                     .mt(px(2.))
-                                    .font_family(MONO)
-                                    .text_size(px(FS_SMALL))
+                                    .font_family(mono())
+                                    .text_size(px(fs_small()))
                                     .text_color(p.muted)
                                     .truncate()
                                     .child(self.source_label(&skill.record.origin)),
@@ -351,7 +340,7 @@ impl KitterApp {
                         true,
                     )
                     .mt(px(6.))
-                    .child(Self::icon("icons/plus.svg", ICON_MD, p.secondary))
+                    .child(Self::icon("icons/plus.svg", icon_md(), p.secondary))
                     .child(t!("common.add_skill").to_string())
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.open_preset_skills_dialog(window, cx);
@@ -372,7 +361,7 @@ impl KitterApp {
                     card.child(
                         kit::card_add_row(p, "add-preset-skill")
                             .debug_selector(|| "add-preset-skill".into())
-                            .child(Self::icon("icons/plus.svg", ICON_MD, p.secondary))
+                            .child(Self::icon("icons/plus.svg", icon_md(), p.secondary))
                             .child(t!("common.add_skill").to_string())
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.open_preset_skills_dialog(window, cx);
@@ -407,7 +396,7 @@ impl KitterApp {
                 kit::Size::Sm,
                 true,
             )
-            .child(Self::icon("icons/rotate-cw.svg", ICON_SM, p.secondary))
+            .child(Self::icon("icons/rotate-cw.svg", icon_sm(), p.secondary))
             .child(t!("presets.sync_all").to_string())
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.sync_preset(sync_id.clone(), pending.clone(), cx);
@@ -476,7 +465,7 @@ impl KitterApp {
                 let (delete_app, delete_id, delete_path) = (app.clone(), id.clone(), path.clone());
                 menu.item(
                     PopupMenuItem::new(t!("common.rename").to_string())
-                        .icon(Icon::default().path("icons/pencil.svg"))
+                        .icon(Icon::default().path(KitterApp::icon_path("icons/pencil.svg")))
                         .on_click(move |_, window, cx| {
                             let _ = rename_app.update(cx, |this, cx| {
                                 this.open_preset_name_dialog(
@@ -503,16 +492,11 @@ impl KitterApp {
             }));
         }
         let drop_id = preset.id.clone();
-        let tree_panel = div()
+        let tree_panel = kit::pane(p)
             .id("preset-files-panel")
             .relative()
             .w(px(220.))
-            .h_full()
-            .flex_none()
-            .flex()
-            .flex_col()
-            .bg(p.surface)
-            .drag_over::<ExternalPaths>(move |panel, _, _, _| panel.bg(p.hover))
+            .drag_over::<ExternalPaths>(move |panel, _, _, _| panel.drop_fill(p))
             .on_drop(cx.listener(move |this, paths: &ExternalPaths, _, cx| {
                 this.add_dropped_preset_files(drop_id.clone(), paths.paths(), cx);
             }))
@@ -563,28 +547,14 @@ impl KitterApp {
             .h_full()
             .flex()
             .flex_col()
-            .child(
-                div()
-                    .h(px(40.))
-                    .flex_none()
-                    .px(px(16.))
-                    .border_b_1()
-                    .border_color(p.border)
-                    .bg(p.surface)
-                    .flex()
-                    .items_center()
-                    .font_family(MONO)
-                    .text_size(px(FS_SMALL))
-                    .text_color(p.secondary)
-                    .child(self.presets_view.selected_file.display().to_string()),
-            )
+            .child(kit::file_bar(p).child(self.presets_view.selected_file.display().to_string()))
             .child(
                 div().flex_1().min_h_0().px(px(8.)).py(px(8.)).child(
                     Editor::new(&self.presets_view.agents_md)
                         .h_full()
                         .bordered(false)
-                        .font_family(MONO)
-                        .text_size(px(FS_BODY)),
+                        .font_family(mono())
+                        .text_size(px(fs_body())),
                 ),
             );
         div()
@@ -644,7 +614,7 @@ impl KitterApp {
                         } else {
                             "icons/folder.svg"
                         },
-                        ICON_MD,
+                        icon_md(),
                         p.secondary,
                     ))
                     .child(
@@ -653,16 +623,16 @@ impl KitterApp {
                             .flex_1()
                             .child(
                                 div()
-                                    .font_family(MONO)
-                                    .text_size(px(FS_BODY))
+                                    .font_family(mono())
+                                    .text_size(px(fs_body()))
                                     .truncate()
                                     .child(name),
                             )
                             .child(
                                 div()
                                     .mt(px(2.))
-                                    .font_family(MONO)
-                                    .text_size(px(FS_SMALL))
+                                    .font_family(mono())
+                                    .text_size(px(fs_small()))
                                     .text_color(p.muted)
                                     .truncate()
                                     .child(display_path(&project)),
@@ -760,7 +730,7 @@ impl KitterApp {
             let open_id = id.clone();
             card = card.child(
                 kit::card_row(p, index == 0)
-                    .h(px(ROW_2))
+                    .h(px(row_2()))
                     .child(
                         div()
                             .id(ElementId::Name(
@@ -774,12 +744,12 @@ impl KitterApp {
                             .items_center()
                             .gap(px(12.))
                             .cursor_pointer()
-                            .child(Self::icon("icons/layers.svg", ICON_MD, p.secondary))
+                            .child(Self::icon("icons/layers.svg", icon_md(), p.secondary))
                             .child(
                                 div()
                                     .min_w_0()
-                                    .font_family(MONO)
-                                    .text_size(px(FS_BODY))
+                                    .font_family(mono())
+                                    .text_size(px(fs_body()))
                                     .truncate()
                                     .child(preset.name.clone()),
                             )
@@ -817,7 +787,7 @@ impl KitterApp {
                     .anchor(Anchor::TopLeft)
                     .trigger(
                         kit::quiet_trigger(p, "install-project-preset")
-                            .child(Self::icon("icons/plus.svg", ICON_MD, p.secondary))
+                            .child(Self::icon("icons/plus.svg", icon_md(), p.secondary))
                             .child(t!("presets.install_preset").to_string()),
                     )
                     .content(move |_, _, popover_cx| {
@@ -915,7 +885,7 @@ impl KitterApp {
                     ElementId::Name(format!("pick-preset-skill-{storage_name}").into()),
                     false,
                 )
-                .min_h(px(ROW_2))
+                .min_h(px(row_2()))
                 .gap(px(10.))
                 .child(
                     Checkbox::new(ElementId::Name(
@@ -930,16 +900,16 @@ impl KitterApp {
                         .flex_1()
                         .child(
                             div()
-                                .font_family(MONO)
-                                .text_size(px(FS_BODY))
+                                .font_family(mono())
+                                .text_size(px(fs_body()))
                                 .truncate()
                                 .child(skill.record.name.clone()),
                         )
                         .child(
                             div()
                                 .mt(px(2.))
-                                .font_family(MONO)
-                                .text_size(px(FS_SMALL))
+                                .font_family(mono())
+                                .text_size(px(fs_small()))
                                 .text_color(p.muted)
                                 .truncate()
                                 .child(self.source_label(&skill.record.origin)),
@@ -985,14 +955,14 @@ impl KitterApp {
         };
         let message = |text: String| {
             div()
-                .text_size(px(FS_BODY))
+                .text_size(px(fs_body()))
                 .line_height(relative(1.5))
                 .child(text)
         };
         let hint = |text: String| {
             div()
                 .mt(px(6.))
-                .text_size(px(FS_BODY))
+                .text_size(px(fs_body()))
                 .line_height(relative(1.5))
                 .text_color(p.secondary)
                 .child(text)
@@ -1000,8 +970,8 @@ impl KitterApp {
         let path_list = |paths: Vec<String>| {
             div()
                 .mt(px(8.))
-                .font_family(MONO)
-                .text_size(px(FS_SMALL))
+                .font_family(mono())
+                .text_size(px(fs_small()))
                 .text_color(p.secondary)
                 .children(paths.into_iter().map(|path| div().child(path)))
         };
@@ -1074,8 +1044,8 @@ impl KitterApp {
                         .child(
                             div()
                                 .mt(px(8.))
-                                .font_family(MONO)
-                                .text_size(px(FS_SMALL))
+                                .font_family(mono())
+                                .text_size(px(fs_small()))
                                 .text_color(p.secondary)
                                 .children(names.into_iter().map(|name| div().child(name))),
                         ),

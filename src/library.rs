@@ -23,6 +23,7 @@ const KITTER_INSTALL_CLI_MD: &str =
     include_str!("../resources/skills/kitter/references/install-cli.md");
 const KITTER_AGENT_PLUGINS_MD: &str =
     include_str!("../resources/skills/kitter/references/agent-plugins.md");
+const KITTER_THEMES_MD: &str = include_str!("../resources/skills/kitter/references/themes.md");
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 struct Registry {
@@ -216,7 +217,7 @@ impl SkillLibrary {
     }
 
     pub fn save(&self) -> Result<()> {
-        config::save_json(&self.data_dir.join("config.json"), &self.config)?;
+        self.config.save_to(&self.data_dir)?;
         config::save_json(&self.data_dir.join("registry.json"), &self.registry)
     }
 
@@ -1286,6 +1287,7 @@ fn ensure_builtin_skill(library_dir: &Path) -> Result<()> {
         &references.join("agent-plugins.md"),
         KITTER_AGENT_PLUGINS_MD,
     )?;
+    write_builtin_file(&references.join("themes.md"), KITTER_THEMES_MD)?;
     Ok(())
 }
 
@@ -1557,6 +1559,11 @@ mod tests {
             fs::read_to_string(builtin_path.join("references/agent-plugins.md"))
                 .unwrap()
                 .contains("kitter agents check")
+        );
+        assert!(
+            fs::read_to_string(builtin_path.join("references/themes.md"))
+                .unwrap()
+                .contains("kitter theme check")
         );
         assert!(
             fs::read_to_string(builtin_path.join("agents/openai.yaml"))

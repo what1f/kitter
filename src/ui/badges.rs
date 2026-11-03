@@ -29,13 +29,12 @@ impl KitterApp {
         let width = if slots == 0 {
             0.
         } else {
-            AVATAR + (slots - 1) as f32 * (AVATAR - 6.)
+            avatar_size() + (slots - 1) as f32 * (avatar_size() - 6.)
         };
         let ring = |avatar: Div, index: usize| {
             avatar
                 .when(index > 0, |avatar| avatar.ml(px(-6.)))
-                .border_1()
-                .border_color(p.surface)
+                .avatar_ring(p)
         };
         let mut badges = div().flex().items_center();
         for (index, agent) in agents.iter().take(5).enumerate() {
@@ -59,16 +58,15 @@ impl KitterApp {
                         ))
                         .accessibility_label(format!("+{hidden}"))
                         .ml(px(-6.))
-                        .size(px(AVATAR))
+                        .size(px(avatar_size()))
                         .flex_none()
-                        .rounded_full()
-                        .border_1()
-                        .border_color(p.surface)
+                        .rounded(px(r_pill()))
+                        .avatar_ring(p)
                         .bg(p.avatar)
                         .flex()
                         .items_center()
                         .justify_center()
-                        .font_family(MONO)
+                        .font_family(mono())
                         .text_size(px(10.))
                         .text_color(p.secondary)
                         .hover(move |button| button.text_color(p.text))
@@ -83,12 +81,12 @@ impl KitterApp {
                         for agent in agents.clone() {
                             menu = menu.child(
                                 div()
-                                    .h(px(H_SM + 4.))
+                                    .h(px(h_sm() + 4.))
                                     .px(px(8.))
                                     .flex()
                                     .items_center()
                                     .gap(px(8.))
-                                    .text_size(px(FS_BODY))
+                                    .text_size(px(fs_body()))
                                     .child(kit::agent_avatar(p, agent))
                                     .child(agent.name.clone()),
                             );

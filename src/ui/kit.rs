@@ -19,8 +19,8 @@ pub(super) enum Size {
 impl Size {
     fn height(self) -> f32 {
         match self {
-            Size::Sm => H_SM,
-            Size::Md => H_MD,
+            Size::Sm => h_sm(),
+            Size::Md => h_md(),
         }
     }
 }
@@ -72,15 +72,15 @@ pub(super) fn button(
         .items_center()
         .justify_center()
         .gap(px(6.))
-        .rounded(px(R_MD))
-        .border_1()
+        .rounded(px(r_md()))
+        .border(px(border_w()))
         .border_color(clear())
         .whitespace_nowrap()
-        .text_size(px(FS_BODY))
+        .text_size(px(fs_body()))
         .font_weight(if kind == ButtonKind::Quiet {
             FontWeight::NORMAL
         } else {
-            FontWeight::MEDIUM
+            weight_medium()
         });
     if !enabled {
         let fill = match kind {
@@ -94,21 +94,26 @@ pub(super) fn button(
         ButtonKind::Primary => base
             .bg(p.primary)
             .text_color(p.on_primary)
+            .surface(p, Material::Primary)
             .hover(|button| button.opacity(0.86)),
         ButtonKind::Secondary => base
             .bg(p.surface)
             .border_color(p.border_strong)
             .text_color(p.text)
+            .surface(p, Material::Control)
             .hover(move |button| button.bg(p.hover)),
         ButtonKind::Ghost => base
             .text_color(p.text)
-            .hover(move |button| button.bg(p.hover)),
-        ButtonKind::Quiet => base
-            .text_color(p.secondary)
-            .hover(move |button| button.bg(p.hover).text_color(p.text)),
+            .hover(move |button| button.bg(p.hover).material(p, Material::State)),
+        ButtonKind::Quiet => base.text_color(p.secondary).hover(move |button| {
+            button
+                .bg(p.hover)
+                .text_color(p.text)
+                .material(p, Material::State)
+        }),
         ButtonKind::Danger => base
             .bg(p.danger)
-            .text_color(rgb(0xffffff))
+            .text_color(p.on_danger)
             .hover(|button| button.opacity(0.88)),
     }
 }
@@ -136,22 +141,25 @@ pub(super) fn icon_button(
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(R_MD))
-        .border_1()
+        .rounded(px(r_md()))
+        .border(px(border_w()))
         .border_color(clear())
-        .cursor_pointer()
-        .child(
-            KitterApp::icon(path, ICON_MD, rest)
-                .group_hover(group, move |icon| icon.text_color(hover)),
-        );
-    match kind {
-        IconKind::Ghost => button.hover(move |button| button.bg(p.hover)),
+        .cursor_pointer();
+    let button = match kind {
+        IconKind::Ghost => {
+            button.hover(move |button| button.bg(p.hover).material(p, Material::State))
+        }
         IconKind::Secondary => button
             .bg(p.surface)
             .border_color(p.border_strong)
+            .surface(p, Material::Control)
             .hover(move |button| button.bg(p.hover)),
         IconKind::Danger => button.hover(move |button| button.bg(p.danger_soft)),
-    }
+    };
+    button.child(
+        KitterApp::icon(path, icon_md(), rest)
+            .group_hover(group, move |icon| icon.text_color(hover)),
+    )
 }
 
 /// Close (×) button for dialog headers.
@@ -173,17 +181,22 @@ pub(super) fn icon_trigger(
 ) -> gpui_base::Button {
     gpui_base::Button::new(id)
         .accessibility_label(label.into())
-        .size(px(H_SM))
+        .size(px(h_sm()))
         .flex_none()
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(R_MD))
+        .rounded(px(r_md()))
         .text_color(p.secondary)
-        .hover(move |button| button.bg(p.hover).text_color(p.text))
-        .active(move |button| button.bg(p.selected))
-        .styles(|styles| styles.selected(|style| style.bg(p.selected)))
-        .child(KitterApp::icon(path, ICON_MD, p.secondary))
+        .hover(move |button| {
+            button
+                .bg(p.hover)
+                .text_color(p.text)
+                .material(p, Material::State)
+        })
+        .active(move |button| button.bg(p.selected).material(p, Material::State))
+        .styles(|styles| styles.selected(|style| style.bg(p.selected).material(p, Material::State)))
+        .child(KitterApp::icon(path, icon_md(), p.secondary))
 }
 
 /// Quiet text button usable as a `Popover` trigger; callers add an icon and
@@ -192,16 +205,21 @@ pub(super) fn quiet_trigger(p: Palette, id: impl Into<ElementId>) -> gpui_base::
     let (id, selector) = element_id(id);
     gpui_base::Button::new(id)
         .debug_selector(|| selector)
-        .h(px(H_SM))
+        .h(px(h_sm()))
         .px(px(10.))
         .flex_none()
         .flex()
         .items_center()
         .gap(px(6.))
-        .rounded(px(R_MD))
-        .text_size(px(FS_BODY))
+        .rounded(px(r_md()))
+        .text_size(px(fs_body()))
         .text_color(p.secondary)
-        .hover(move |button| button.bg(p.hover).text_color(p.text))
+        .hover(move |button| {
+            button
+                .bg(p.hover)
+                .text_color(p.text)
+                .material(p, Material::State)
+        })
 }
 
 /// Select-style trigger for a `Popover` menu.
@@ -213,16 +231,17 @@ pub(super) fn select_trigger(
     let label = label.into();
     gpui_base::Button::new(id)
         .accessibility_label(label.clone())
-        .h(px(H_MD))
+        .h(px(h_md()))
         .flex_shrink_0()
         .pl(px(10.))
         .pr(px(8.))
-        .rounded(px(R_MD))
-        .border_1()
+        .rounded(px(r_md()))
+        .border(px(border_w()))
         .border_color(p.border_strong)
         .bg(p.surface)
+        .material(p, Material::Field)
         .text_color(p.text)
-        .font_family(FONT_UI)
+        .font_family(font_ui())
         .flex()
         .items_center()
         .justify_between()
@@ -230,7 +249,7 @@ pub(super) fn select_trigger(
         .hover(move |button| button.bg(p.hover))
         .styles(|styles| {
             styles
-                .selected(|style| style.border_color(p.accent))
+                .selected(|style| style.border_color(p.focus))
                 .disabled(|style| style.bg(p.surface).text_color(p.muted))
         })
         // Button::label clips text to a 1em line box in gpui-component.
@@ -239,11 +258,11 @@ pub(super) fn select_trigger(
             div()
                 .min_w_0()
                 .truncate()
-                .text_size(px(FS_BODY))
+                .text_size(px(fs_body()))
                 .line_height(relative(1.5))
                 .child(label),
         )
-        .child(KitterApp::icon("icons/chevron-down.svg", ICON_SM, p.muted).flex_none())
+        .child(KitterApp::icon("icons/chevron-down.svg", icon_sm(), p.muted).flex_none())
 }
 
 /// Field-shaped button that opens a file or folder chooser.
@@ -258,20 +277,21 @@ pub(super) fn picker(
     div()
         .id(id)
         .debug_selector(|| selector)
-        .h(px(H_MD))
+        .h(px(h_md()))
         .w_full()
         .min_w_0()
         .px(px(10.))
-        .rounded(px(R_MD))
-        .border_1()
+        .rounded(px(r_md()))
+        .border(px(border_w()))
         .border_color(p.border_strong)
         .bg(p.surface)
+        .surface(p, Material::Field)
         .flex()
         .items_center()
         .gap(px(8.))
-        .text_size(px(FS_BODY))
+        .text_size(px(fs_body()))
         .text_color(p.secondary)
-        .child(KitterApp::icon(icon, ICON_MD, p.muted))
+        .child(KitterApp::icon(icon, icon_md(), p.muted))
         .child(div().min_w_0().flex_1().truncate().child(label.into()))
         .when(enabled, |picker| {
             picker
@@ -283,12 +303,13 @@ pub(super) fn picker(
 
 pub(super) fn input(p: Palette, state: &Entity<InputState>) -> Input {
     Input::new(state)
-        .h(px(H_MD))
+        .h(px(h_md()))
         .w_full()
-        .rounded(px(R_MD))
+        .rounded(px(r_md()))
         .bg(p.surface)
         .border_color(p.border_strong)
-        .text_size(px(FS_BODY))
+        .material(p, Material::Field)
+        .text_size(px(fs_body()))
 }
 
 /// Multi-line text field that grows with its content.
@@ -298,20 +319,21 @@ pub(super) fn textarea(
 ) -> gpui_component::input::Textarea {
     gpui_component::input::Textarea::new(state)
         .w_full()
-        .rounded(px(R_MD))
+        .rounded(px(r_md()))
         .bg(p.surface)
         .border_color(p.border_strong)
-        .text_size(px(FS_BODY))
+        .material(p, Material::Field)
+        .text_size(px(fs_body()))
 }
 
 pub(super) fn search_input(p: Palette, state: &Entity<InputState>) -> Input {
-    input(p, state).prefix(KitterApp::icon("icons/search.svg", ICON_MD, p.muted))
+    input(p, state).prefix(KitterApp::icon("icons/search.svg", icon_md(), p.muted))
 }
 
 pub(super) fn field_label(p: Palette, text: impl Into<SharedString>) -> Div {
     div()
-        .text_size(px(FS_SMALL))
-        .font_weight(FontWeight::MEDIUM)
+        .text_size(px(fs_small()))
+        .font_weight(weight_medium())
         .text_color(p.secondary)
         .child(text.into())
 }
@@ -332,7 +354,7 @@ pub(super) fn form() -> Div {
 
 pub(super) fn field_error(p: Palette, text: impl Into<SharedString>) -> Div {
     div()
-        .text_size(px(FS_SMALL))
+        .text_size(px(fs_small()))
         .text_color(p.danger)
         .child(text.into())
 }
@@ -341,8 +363,8 @@ pub(super) fn section_title(text: impl Into<SharedString>) -> Div {
     div()
         .mb(px(8.))
         .ml(px(2.))
-        .text_size(px(FS_BODY))
-        .font_weight(FontWeight::SEMIBOLD)
+        .text_size(px(fs_body()))
+        .font_weight(weight_semibold())
         .child(text.into())
 }
 
@@ -353,12 +375,12 @@ pub(super) fn menu(p: Palette) -> Div {
         .p(px(4.))
         .flex()
         .flex_col()
-        .rounded(px(R_LG))
-        .border_1()
+        .rounded(px(r_lg()))
+        .border(px(border_w()))
         .border_color(p.border_strong)
         .bg(p.elevated)
-        .shadow_lg()
-        .font_family(FONT_UI)
+        .surface(p, Material::Popover)
+        .font_family(font_ui())
         .text_color(p.text)
 }
 
@@ -370,17 +392,17 @@ fn menu_row(p: Palette, id: impl Into<ElementId>) -> Stateful<Div> {
         .w_full()
         .min_w_0()
         .px(px(8.))
-        .rounded(px(R_SM))
+        .rounded(px(r_sm()))
         .flex()
         .items_center()
         .gap(px(8.))
         .cursor_pointer()
-        .text_size(px(FS_BODY))
-        .hover(move |row| row.bg(p.hover))
+        .text_size(px(fs_body()))
+        .hover(move |row| row.bg(p.hover).material(p, Material::State))
 }
 
-fn menu_check(p: Palette) -> Svg {
-    KitterApp::icon("icons/check.svg", ICON_SM, p.text).flex_none()
+fn menu_check(p: Palette) -> super::components::ThemeIcon {
+    KitterApp::icon("icons/check.svg", icon_sm(), p.text).flex_none()
 }
 
 /// Single-line menu row; a selected row shows a trailing check mark.
@@ -391,7 +413,7 @@ pub(super) fn menu_item(
     selected: bool,
 ) -> Stateful<Div> {
     menu_row(p, id)
-        .h(px(H_SM))
+        .h(px(h_sm()))
         .child(div().min_w_0().flex_1().truncate().child(label.into()))
         .when(selected, |row| row.child(menu_check(p)))
 }
@@ -404,8 +426,8 @@ pub(super) fn menu_action(
     label: impl Into<SharedString>,
 ) -> Stateful<Div> {
     menu_row(p, id)
-        .h(px(H_SM))
-        .child(KitterApp::icon(icon, ICON_MD, p.secondary))
+        .h(px(h_sm()))
+        .child(KitterApp::icon(icon, icon_md(), p.secondary))
         .child(div().min_w_0().flex_1().truncate().child(label.into()))
 }
 
@@ -427,8 +449,8 @@ pub(super) fn menu_item_detail(
                 .child(
                     div()
                         .mt(px(2.))
-                        .font_family(MONO)
-                        .text_size(px(FS_CAPTION))
+                        .font_family(mono())
+                        .text_size(px(fs_caption()))
                         .text_color(p.muted)
                         .truncate()
                         .child(detail.into()),
@@ -446,8 +468,8 @@ pub(super) fn menu_label(p: Palette, text: impl Into<SharedString>) -> Div {
         .px(px(8.))
         .pt(px(6.))
         .pb(px(4.))
-        .text_size(px(FS_CAPTION))
-        .font_weight(FontWeight::MEDIUM)
+        .text_size(px(fs_caption()))
+        .font_weight(weight_medium())
         .text_color(p.muted)
         .child(text.into())
 }
@@ -460,8 +482,9 @@ pub(super) fn segmented(p: Palette) -> Div {
         .items_center()
         .gap(px(2.))
         .p(px(2.))
-        .rounded(px(R_MD))
+        .rounded(px(r_md()))
         .bg(p.raised)
+        .surface(p, Material::Well)
 }
 
 pub(super) fn segment(
@@ -474,20 +497,21 @@ pub(super) fn segment(
     div()
         .id(id)
         .debug_selector(|| selector)
-        .h(px(24.))
+        .h(px(segment_h()))
         .px(px(10.))
-        .rounded(px(R_SM))
+        .rounded(px(r_sm()))
         .flex()
         .items_center()
         .cursor_pointer()
-        .text_size(px(FS_BODY))
+        .text_size(px(fs_body()))
         .when(active, |segment| {
             segment
                 .bg(p.elevated)
-                .border_1()
+                .border(px(border_w()))
                 .border_color(p.border)
+                .surface(p, Material::State)
                 .text_color(p.text)
-                .font_weight(FontWeight::MEDIUM)
+                .font_weight(weight_medium())
         })
         .when(!active, |segment| {
             segment
@@ -503,19 +527,20 @@ pub(super) fn tab(p: Palette, id: impl Into<ElementId>, active: bool) -> Statefu
     div()
         .id(id)
         .debug_selector(|| selector)
-        .h(px(H_SM))
+        .h(px(h_sm()))
         .px(px(10.))
         .flex_none()
-        .rounded(px(R_MD))
+        .rounded(px(r_md()))
         .flex()
         .items_center()
         .gap(px(6.))
         .cursor_pointer()
-        .text_size(px(FS_BODY))
+        .text_size(px(fs_body()))
         .when(active, |tab| {
             tab.bg(p.selected)
+                .surface(p, Material::State)
                 .text_color(p.text)
-                .font_weight(FontWeight::MEDIUM)
+                .font_weight(weight_medium())
         })
         .when(!active, |tab| {
             tab.text_color(p.secondary)
@@ -530,38 +555,40 @@ pub(super) fn tabs() -> Div {
 /// Small status pill. Callers add an optional 12px icon and a label.
 pub(super) fn badge(p: Palette) -> Div {
     div()
-        .h(px(20.))
+        .h(px(badge_h()))
         .px(px(6.))
-        .rounded(px(R_SM))
+        .rounded(px(r_sm()))
         .bg(p.raised)
+        .surface(p, Material::Control)
         .flex()
         .flex_none()
         .items_center()
         .gap(px(4.))
-        .text_size(px(FS_CAPTION))
+        .text_size(px(fs_caption()))
         .text_color(p.muted)
 }
 
 /// Tag-like token, optionally removable.
 pub(super) fn chip(p: Palette) -> Div {
     div()
-        .h(px(24.))
+        .h(px(chip_h()))
         .px(px(8.))
-        .rounded(px(R_SM))
+        .rounded(px(r_sm()))
         .bg(p.raised)
+        .surface(p, Material::Control)
         .flex()
         .flex_none()
         .items_center()
         .gap(px(4.))
-        .text_size(px(FS_SMALL))
+        .text_size(px(fs_small()))
         .text_color(p.secondary)
 }
 
 pub(super) fn count(p: Palette, value: impl ToString) -> Div {
     div()
         .flex_none()
-        .font_family(MONO)
-        .text_size(px(FS_SMALL))
+        .font_family(mono())
+        .text_size(px(fs_small()))
         .text_color(p.muted)
         .child(value.to_string())
 }
@@ -569,37 +596,37 @@ pub(super) fn count(p: Palette, value: impl ToString) -> Div {
 /// Circular agent avatar. Identity marks are always round.
 pub(super) fn avatar(p: Palette, path: &'static str) -> Div {
     div()
-        .size(px(AVATAR))
+        .size(px(avatar_size()))
         .flex_none()
-        .rounded_full()
+        .rounded(px(r_pill()))
         .bg(p.avatar)
         .flex()
         .items_center()
         .justify_center()
-        .child(KitterApp::icon(path, ICON_MD, p.text))
+        .child(KitterApp::icon(path, icon_md(), p.text))
 }
 
 pub(super) fn agent_avatar(p: Palette, agent: &crate::agent_plugins::AgentDef) -> Div {
     div()
-        .size(px(AVATAR))
+        .size(px(avatar_size()))
         .flex_none()
-        .rounded_full()
+        .rounded(px(r_pill()))
         .bg(p.avatar)
         .text_color(p.text)
         .flex()
         .items_center()
         .justify_center()
-        .child(KitterApp::brand_icon(agent, ICON_MD, p.dark))
+        .child(KitterApp::brand_icon(agent, icon_md(), p.dark))
 }
 
 /// Rounded-square tile behind a functional icon (not an identity mark).
 pub(super) fn icon_tile(p: Palette, path: &'static str, size: f32) -> Div {
     let (radius, icon) = if size >= 48. {
-        (R_XL, 22.)
+        (r_xl(), 22.)
     } else if size >= 40. {
-        (R_LG, 20.)
+        (r_lg(), 20.)
     } else {
-        (R_SM, ICON_MD)
+        (r_sm(), icon_md())
     };
     div()
         .size(px(size))
@@ -615,24 +642,27 @@ pub(super) fn icon_tile(p: Palette, path: &'static str, size: f32) -> Div {
 pub(super) fn card(p: Palette) -> Div {
     div()
         .w_full()
-        .rounded(px(R_XL))
-        .border_1()
+        .rounded(px(r_xl()))
+        .border(px(border_w()))
         .border_color(p.border)
         .bg(p.surface)
+        .surface(p, Material::Pane)
         .overflow_hidden()
 }
 
 /// Row inside a card; every row after the first draws a divider.
 pub(super) fn card_row(p: Palette, first: bool) -> Div {
     div()
-        .min_h(px(ROW_2))
+        .min_h(px(row_2()))
         .px(px(16.))
         .flex()
         .items_center()
         .gap(px(12.))
-        .text_size(px(FS_BODY))
-        .when(first, |row| row.rounded_t(px(R_CARD_INNER)))
-        .when(!first, |row| row.border_t_1().border_color(p.border))
+        .text_size(px(fs_body()))
+        .when(first, |row| row.rounded_t(px(r_card_inner())))
+        .when(!first, |row| {
+            row.border_t(px(divider_w())).border_color(p.border)
+        })
 }
 
 /// Trailing "add" row that closes a card list.
@@ -640,7 +670,7 @@ pub(super) fn card_add_row(p: Palette, id: impl Into<ElementId>) -> Stateful<Div
     card_row(p, false)
         .id(id)
         .min_h(px(44.))
-        .rounded_b(px(R_CARD_INNER))
+        .rounded_b(px(r_card_inner()))
         .cursor_pointer()
         .text_color(p.secondary)
         .hover(move |row| row.bg(p.hover))
@@ -649,14 +679,14 @@ pub(super) fn card_add_row(p: Palette, id: impl Into<ElementId>) -> Stateful<Div
 /// Small heading row at the top of a card section.
 pub(super) fn card_header(p: Palette, text: impl Into<SharedString>) -> Div {
     div()
-        .h(px(36.))
+        .h(px(card_header_h()))
         .px(px(16.))
         .flex()
         .items_center()
-        .rounded_t(px(R_CARD_INNER))
+        .rounded_t(px(r_card_inner()))
         .bg(p.raised)
-        .text_size(px(FS_SMALL))
-        .font_weight(FontWeight::MEDIUM)
+        .text_size(px(fs_small()))
+        .font_weight(weight_medium())
         .text_color(p.secondary)
         .child(text.into())
 }
@@ -669,20 +699,255 @@ pub(super) fn list_row(p: Palette, id: impl Into<ElementId>, selected: bool) -> 
         .debug_selector(|| selector)
         .w_full()
         .min_w_0()
-        .min_h(px(ROW_1))
+        .min_h(px(row_1()))
         .px(px(8.))
-        .rounded(px(R_MD))
+        .rounded(px(r_md()))
         .flex()
         .items_center()
         .gap(px(8.))
         .cursor_pointer()
-        .when(selected, |row| row.bg(p.selected))
+        .when(selected, |row| {
+            row.bg(p.selected).surface(p, Material::State)
+        })
         .when(!selected, |row| row.hover(move |row| row.bg(p.hover)))
+}
+
+// Surfaces. Pages lay out with these instead of painting palette colors on
+// raw divs, so a style only has to change them here.
+
+/// Selected and hover fills for rows, tiles and triggers that are not built
+/// from `list_row`.
+pub(super) trait FillExt: Styled + Sized {
+    /// Selected fill; leaves the element as-is when `selected` is false.
+    fn selected_fill(self, p: Palette, selected: bool) -> Self {
+        if selected {
+            self.bg(p.selected).material(p, Material::State)
+        } else {
+            self
+        }
+    }
+
+    /// Highlight for a drop target while something is dragged over it.
+    fn drop_fill(self, p: Palette) -> Self {
+        self.selected_fill(p, true)
+    }
+
+    /// Ring around avatars that overlap, cut from the ground behind them.
+    fn avatar_ring(self, p: Palette) -> Self {
+        self.border(px(border_w())).border_color(p.pane)
+    }
+}
+
+impl<T: Styled> FillExt for T {}
+
+pub(super) trait HoverFillExt: InteractiveElement + Styled + Sized {
+    fn hover_fill(self, p: Palette) -> Self {
+        self.hover(move |style| style.bg(p.hover))
+    }
+}
+
+impl<T: InteractiveElement + Styled> HoverFillExt for T {}
+
+/// Root of the window, behind the sidebar and the main area.
+pub(super) fn window_ground(p: Palette) -> Div {
+    div()
+        .size_full()
+        .relative()
+        .font_family(font_ui())
+        .text_color(p.text)
+        .text_size(px(fs_emph()))
+        .bg(p.window)
+        .surface(p, Material::Window)
+        .flex()
+}
+
+/// Main content area to the right of the sidebar.
+pub(super) fn main_area(p: Palette) -> Div {
+    div()
+        .min_w_0()
+        .flex_1()
+        .min_h_0()
+        .h_full()
+        .bg(p.base)
+        .surface(p, Material::Content)
+        .flex()
+        .flex_col()
+}
+
+/// App sidebar column.
+pub(super) fn sidebar_panel(p: Palette) -> Div {
+    div()
+        .w_full()
+        .min_w_0()
+        .min_h_0()
+        .h_full()
+        .flex_none()
+        .flex()
+        .flex_col()
+        .bg(p.sidebar)
+        .surface(p, Material::Sidebar)
+}
+
+/// Secondary column inside the main area: list panes and file trees.
+/// Callers set the width.
+pub(super) fn pane(p: Palette) -> Div {
+    div()
+        .min_w_0()
+        .min_h_0()
+        .h_full()
+        .flex_none()
+        .flex()
+        .flex_col()
+        .bg(p.pane)
+        .surface(p, Material::Column)
+}
+
+/// Title bar at the top of a pane.
+pub(super) fn pane_header(p: Palette) -> Div {
+    div()
+        .h(px(pane_header_h()))
+        .flex_none()
+        .px(px(12.))
+        .flex()
+        .items_center()
+        .border_b(px(divider_w()))
+        .border_color(p.border)
+}
+
+/// Path bar above a file preview or editor.
+pub(super) fn file_bar(p: Palette) -> Div {
+    div()
+        .h(px(file_bar_h()))
+        .flex_none()
+        .px(px(16.))
+        .border_b(px(divider_w()))
+        .border_color(p.border)
+        .bg(p.pane)
+        .flex()
+        .items_center()
+        .font_family(mono())
+        .text_size(px(fs_small()))
+        .text_color(p.secondary)
+}
+
+/// Tab strip under a detail header.
+pub(super) fn tab_bar(p: Palette) -> Div {
+    tabs()
+        .h(px(tab_bar_h()))
+        .px(px(24.))
+        .border_b(px(divider_w()))
+        .border_color(p.border)
+}
+
+/// Quiet tinted box for a path or a short list inside a dialog or pane.
+pub(super) fn inset_box(p: Palette) -> Div {
+    div().rounded(px(r_md())).bg(p.raised)
+}
+
+/// Bordered tile that holds one choice, such as a path to delete.
+pub(super) fn option_tile(p: Palette) -> Div {
+    div()
+        .rounded(px(r_md()))
+        .border(px(border_w()))
+        .border_color(p.border)
+        .bg(p.surface)
+        .surface(p, Material::Control)
+}
+
+/// Tinted box that explains what a destructive action will do.
+pub(super) fn danger_note(p: Palette) -> Div {
+    div()
+        .p(px(12.))
+        .rounded(px(r_md()))
+        .bg(p.danger_soft)
+        .text_size(px(fs_body()))
+}
+
+/// Groove that a progress fill runs in.
+pub(super) fn track(p: Palette) -> Div {
+    div()
+        .relative()
+        .w_full()
+        .h(px(4.))
+        .rounded(px(r_xs()))
+        .bg(p.raised)
+        .surface(p, Material::Well)
+        .overflow_hidden()
+}
+
+/// Fade over the last line of clamped text, matching the ground it sits on.
+/// It switches to the hover fill while `group` is hovered.
+pub(super) fn clamp_fade(p: Palette, group: &'static str) -> Div {
+    let fade = |color: Rgba| {
+        linear_gradient(
+            0.,
+            linear_color_stop(color, 0.),
+            linear_color_stop(color.opacity(0.), 1.),
+        )
+    };
+    div()
+        .absolute()
+        .left(px(0.))
+        .right(px(0.))
+        .bottom(px(0.))
+        .h(px(18.))
+        .bg(fade(p.base))
+        .group_hover(group, move |style| style.bg(fade(p.hover)))
+}
+
+/// Six-dot grip shown on a draggable row.
+pub(super) fn grip(p: Palette) -> Div {
+    let column = || {
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(2.))
+            .children((0..3).map(|_| div().size(px(3.)).rounded(px(r_pill())).bg(p.muted)))
+    };
+    div().flex().gap(px(2.)).child(column()).child(column())
+}
+
+/// Line that marks where a dragged row will land. Callers pin it to the
+/// top or bottom edge.
+pub(super) fn drop_line(p: Palette) -> Div {
+    div()
+        .absolute()
+        .left_0()
+        .right_0()
+        .h(px(2.))
+        .rounded(px(r_pill()))
+        .bg(p.accent)
+}
+
+/// Dimmed backdrop behind a dialog.
+pub(super) fn scrim(p: Palette) -> Div {
+    div()
+        .absolute()
+        .top(px(0.))
+        .right(px(0.))
+        .bottom(px(0.))
+        .left(px(0.))
+        .bg(p.overlay)
+        .flex()
+        .items_center()
+        .justify_center()
+}
+
+/// Frame of a dialog; paints the background and clips the corners.
+pub(super) fn dialog_frame(p: Palette) -> Div {
+    div()
+        .max_h(px(680.))
+        .rounded(px(r_modal()))
+        .border(px(border_w()))
+        .border_color(p.border_strong)
+        .bg(p.elevated)
+        .surface(p, Material::Dialog)
+        .overflow_hidden()
 }
 
 pub(super) fn modal_header(title: impl Into<SharedString>, close: impl IntoElement) -> Div {
     div()
-        .min_h(px(PANE_HEADER))
+        .min_h(px(pane_header_h()))
         .pl(px(20.))
         .pr(px(16.))
         .pt(px(16.))
@@ -694,9 +959,9 @@ pub(super) fn modal_header(title: impl Into<SharedString>, close: impl IntoEleme
                 .min_w_0()
                 .flex_1()
                 .truncate()
-                .font_family(FONT_UI)
-                .text_size(px(FS_TITLE))
-                .font_weight(FontWeight::SEMIBOLD)
+                .font_family(font_ui())
+                .text_size(px(fs_title()))
+                .font_weight(weight_semibold())
                 .child(title.into()),
         )
         .child(close)
@@ -711,7 +976,7 @@ pub(super) fn modal_footer(p: Palette) -> Div {
         .flex_none()
         .px(px(16.))
         .py(px(12.))
-        .border_t_1()
+        .border_t(px(divider_w()))
         .border_color(p.border)
         .flex()
         .items_center()
@@ -722,39 +987,32 @@ pub(super) fn modal_footer(p: Palette) -> Div {
 /// Dialog content. The dialog frame paints the background and clips the
 /// corners, so the panel itself stays transparent.
 pub(super) fn modal_panel(_p: Palette) -> Div {
-    div().relative().flex().flex_col().font_family(FONT_UI)
+    div().relative().flex().flex_col().font_family(font_ui())
 }
 
 pub(super) fn toast(p: Palette) -> Div {
     div()
         .px(px(12.))
         .py(px(10.))
-        .rounded(px(R_LG))
-        .border_1()
+        .rounded(px(r_lg()))
+        .border(px(border_w()))
         .border_color(p.border_strong)
         .bg(p.elevated)
-        .shadow_lg()
+        .surface(p, Material::Popover)
         .flex()
         .flex_col()
         .gap(px(6.))
-        .text_size(px(FS_BODY))
+        .text_size(px(fs_body()))
 }
 
 pub(super) fn progress_bar(p: Palette, ratio: f32) -> Div {
-    div()
-        .relative()
-        .w_full()
-        .h(px(4.))
-        .rounded(px(2.))
-        .bg(p.raised)
-        .overflow_hidden()
-        .child(
-            div()
-                .h_full()
-                .rounded(px(2.))
-                .bg(p.text)
-                .w(relative(ratio.clamp(0., 1.))),
-        )
+    track(p).child(
+        div()
+            .h_full()
+            .rounded(px(r_xs()))
+            .bg(p.text)
+            .w(relative(ratio.clamp(0., 1.))),
+    )
 }
 
 /// Vertical scrollbar that fades in while scrolling and can be dragged.
@@ -778,7 +1036,7 @@ pub(super) fn empty_state(p: Palette, icon: &'static str, text: impl Into<Shared
         .flex_col()
         .items_center()
         .gap(px(10.))
-        .text_size(px(FS_BODY))
+        .text_size(px(fs_body()))
         .text_color(p.muted)
         .child(KitterApp::icon(icon, 24., p.muted))
         .child(text.into())
@@ -800,8 +1058,8 @@ pub(super) fn empty_page(p: Palette, icon: &'static str, title: impl Into<Shared
         .child(
             div()
                 .mt(px(16.))
-                .text_size(px(FS_TITLE))
-                .font_weight(FontWeight::SEMIBOLD)
+                .text_size(px(fs_title()))
+                .font_weight(weight_semibold())
                 .child(title.into()),
         )
 }
@@ -811,8 +1069,8 @@ pub(super) fn pane_title(title: impl Into<SharedString>) -> Div {
     div()
         .min_w_0()
         .truncate()
-        .text_size(px(FS_EMPH))
-        .font_weight(FontWeight::SEMIBOLD)
+        .text_size(px(fs_emph()))
+        .font_weight(weight_semibold())
         .child(title.into())
 }
 
@@ -822,14 +1080,14 @@ pub(super) fn drag_preview(cx: &App, text: impl Into<SharedString>) -> Div {
     div()
         .px(px(10.))
         .py(px(6.))
-        .rounded(px(R_MD))
-        .border_1()
+        .rounded(px(r_md()))
+        .border(px(border_w()))
         .border_color(p.border_strong)
         .bg(p.elevated)
-        .shadow_lg()
+        .surface(p, Material::Popover)
         .text_color(p.text)
-        .font_family(MONO)
-        .text_size(px(FS_SMALL))
+        .font_family(mono())
+        .text_size(px(fs_small()))
         .child(text.into())
 }
 
@@ -841,28 +1099,30 @@ pub(super) fn setting_row(
     description: impl Into<SharedString>,
 ) -> Div {
     div()
-        .min_h(px(ROW_SETTING))
+        .min_h(px(row_setting()))
         .px(px(16.))
         .py(px(12.))
         .flex()
         .items_center()
         .gap(px(24.))
-        .when(first, |row| row.rounded_t(px(R_CARD_INNER)))
-        .when(!first, |row| row.border_t_1().border_color(p.border))
+        .when(first, |row| row.rounded_t(px(r_card_inner())))
+        .when(!first, |row| {
+            row.border_t(px(divider_w())).border_color(p.border)
+        })
         .child(
             div()
                 .min_w_0()
                 .flex_1()
                 .child(
                     div()
-                        .text_size(px(FS_BODY))
-                        .font_weight(FontWeight::MEDIUM)
+                        .text_size(px(fs_body()))
+                        .font_weight(weight_medium())
                         .child(title.into()),
                 )
                 .child(
                     div()
                         .mt(px(2.))
-                        .text_size(px(FS_SMALL))
+                        .text_size(px(fs_small()))
                         .text_color(p.muted)
                         .child(description.into()),
                 ),
@@ -877,7 +1137,7 @@ pub(super) fn choice_row(
     selected: bool,
 ) -> Stateful<Div> {
     list_row(p, id, false)
-        .text_size(px(FS_BODY))
+        .text_size(px(fs_body()))
         .child(div().min_w_0().flex_1().truncate().child(label.into()))
         .when(selected, |row| row.child(menu_check(p)))
 }
@@ -904,15 +1164,15 @@ pub(super) fn detail_header(
                         .flex()
                         .items_center()
                         .gap(px(8.))
-                        .text_size(px(FS_DISPLAY))
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_size(px(fs_display()))
+                        .font_weight(weight_semibold())
                         .line_height(relative(1.2))
                         .child(title),
                 )
                 .child(
                     div()
                         .mt(px(2.))
-                        .text_size(px(FS_SMALL))
+                        .text_size(px(fs_small()))
                         .text_color(p.muted)
                         .truncate()
                         .child(subtitle),
@@ -954,7 +1214,7 @@ pub(super) fn agent_icon_avatar(
                         .map_err(ImageCacheError::from),
                 )
             })))
-            .size(px(KitterApp::brand_icon_size(path, ICON_MD)))
+            .size(px(KitterApp::brand_icon_size(path, icon_md())))
             .flex_none()
             .into_any_element()
         }
@@ -972,15 +1232,15 @@ pub(super) fn agent_icon_avatar(
                         .map_err(ImageCacheError::from),
                 )
             })))
-            .size(px(ICON_MD))
+            .size(px(icon_md()))
             .flex_none()
             .into_any_element()
         }
     };
     div()
-        .size(px(AVATAR))
+        .size(px(avatar_size()))
         .flex_none()
-        .rounded_full()
+        .rounded(px(r_pill()))
         .bg(p.avatar)
         .text_color(p.text)
         .flex()

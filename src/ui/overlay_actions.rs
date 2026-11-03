@@ -10,6 +10,15 @@ impl KitterApp {
     pub(super) fn close_dialog(&mut self, cx: &mut Context<Self>) {
         if self
             .shell
+            .data_location
+            .as_ref()
+            .is_some_and(|prompt| prompt.moving)
+        {
+            return;
+        }
+        self.shell.data_location = None;
+        if self
+            .shell
             .dialog_body
             .as_ref()
             .is_some_and(|body| matches!(body.read(cx).kind, DialogKind::Add))

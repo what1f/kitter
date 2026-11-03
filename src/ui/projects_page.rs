@@ -53,7 +53,7 @@ impl KitterApp {
                     "icons/hash.svg",
                     filter_tooltip.clone(),
                 )
-                .when(selected.is_some(), |button| button.bg(p.selected))
+                .selected_fill(p, selected.is_some())
                 .tooltip(move |window, cx| Tooltip::new(filter_tooltip.clone()).build(window, cx)),
             )
             .content(move |_, _, popover_cx| {
@@ -189,13 +189,13 @@ impl KitterApp {
             controls = controls.child(
                 div()
                     .id("project-batch-select-visible")
-                    .size(px(H_SM))
-                    .rounded(px(R_MD))
+                    .size(px(h_sm()))
+                    .rounded(px(r_md()))
                     .flex()
                     .items_center()
                     .justify_center()
                     .cursor_pointer()
-                    .hover(move |button| button.bg(p.hover))
+                    .hover_fill(p)
                     .child(
                         Checkbox::new("project-batch-select-visible-checkbox")
                             .tab_stop(false)
@@ -304,14 +304,14 @@ impl KitterApp {
             .id(ElementId::Name(format!("project-skill-{name}").into()))
             .debug_selector(move || row_selector)
             .w_full()
-            .h(px(ROW_2 + 12.))
+            .h(px(row_2() + 12.))
             .relative()
             .px(px(32.))
-            .border_b_1()
+            .border_b(px(divider_w()))
             .border_color(p.border)
             .flex()
             .items_center()
-            .hover(move |row| row.bg(p.hover))
+            .hover_fill(p)
             .when(batch_mode && can_delete, |row| {
                 row.child(
                     div()
@@ -330,9 +330,9 @@ impl KitterApp {
                         ),
                 )
             })
-            .child(div().size(px(ICON_MD)).flex_none().child(Self::icon(
+            .child(div().size(px(icon_md())).flex_none().child(Self::icon(
                 "icons/package.svg",
-                ICON_MD,
+                icon_md(),
                 p.secondary,
             )))
             .child(
@@ -352,8 +352,8 @@ impl KitterApp {
                                     ))
                                     .min_w_0()
                                     .truncate()
-                                    .font_family(MONO)
-                                    .text_size(px(FS_BODY))
+                                    .font_family(mono())
+                                    .text_size(px(fs_body()))
                                     .child(effective.name.clone())
                                     .when(!description.is_empty(), |name| {
                                         let tooltip_description = description.clone();
@@ -363,10 +363,10 @@ impl KitterApp {
                                                 div()
                                                     .w(px(320.))
                                                     .max_w(px(320.))
-                                                    .font_family(MONO)
+                                                    .font_family(mono())
                                                     .whitespace_normal()
                                                     .line_height(relative(1.45))
-                                                    .text_size(px(FS_SMALL))
+                                                    .text_size(px(fs_small()))
                                                     .child(description.clone())
                                             })
                                             .build(window, cx)
@@ -387,8 +387,8 @@ impl KitterApp {
                             .overflow_hidden()
                             .flex()
                             .gap(px(12.))
-                            .font_family(MONO)
-                            .text_size(px(FS_SMALL))
+                            .font_family(mono())
+                            .text_size(px(fs_small()))
                             .text_color(p.muted)
                             .children(
                                 location_labels
@@ -487,7 +487,7 @@ impl KitterApp {
                 div()
                     .mt(px(30.))
                     .px(px(16.))
-                    .text_size(px(FS_BODY))
+                    .text_size(px(fs_body()))
                     .text_color(p.muted)
                     .text_center()
                     .child(if self.model.library.config.recent_projects.is_empty() {
@@ -518,9 +518,9 @@ impl KitterApp {
                     ElementId::Name(format!("project-{}", path.display()).into()),
                     selected,
                 )
-                .min_h(px(ROW_2))
+                .min_h(px(row_2()))
                 .my(px(1.))
-                .child(Self::icon("icons/folder.svg", ICON_MD, p.secondary))
+                .child(Self::icon("icons/folder.svg", icon_md(), p.secondary))
                 .child(
                     div()
                         .min_w_0()
@@ -528,9 +528,9 @@ impl KitterApp {
                         .py(px(6.))
                         .child(
                             div()
-                                .font_family(MONO)
-                                .text_size(px(FS_BODY))
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_family(mono())
+                                .text_size(px(fs_body()))
+                                .font_weight(weight_medium())
                                 .truncate()
                                 .child(
                                     path.file_name()
@@ -541,8 +541,8 @@ impl KitterApp {
                         )
                         .child(
                             div()
-                                .font_family(MONO)
-                                .text_size(px(FS_SMALL))
+                                .font_family(mono())
+                                .text_size(px(fs_small()))
                                 .text_color(p.muted)
                                 .truncate()
                                 .child(display_path(&path)),
@@ -569,7 +569,9 @@ impl KitterApp {
                     menu.min_w(px(160.))
                         .item(
                             PopupMenuItem::new(reveal_label.clone())
-                                .icon(Icon::new(IconName::Folder))
+                                .icon(
+                                    Icon::default().path(KitterApp::icon_path("icons/folder.svg")),
+                                )
                                 .on_click(move |_, _, cx| cx.reveal_path(&reveal_path)),
                         )
                         .item(remove_menu_item.on_click(move |_, window, cx| {
@@ -595,25 +597,25 @@ impl KitterApp {
         let global_selected = self.projects_view.global_project_view;
         let global_row = kit::list_row(p, "global-project-skills", global_selected)
             .w_auto()
-            .min_h(px(ROW_2))
+            .min_h(px(row_2()))
             .mx(px(8.))
             .mb(px(6.))
-            .child(Self::icon("icons/house.svg", ICON_MD, p.secondary))
+            .child(Self::icon("icons/house.svg", icon_md(), p.secondary))
             .child(
                 div()
                     .min_w_0()
                     .flex_1()
                     .child(
                         div()
-                            .font_family(MONO)
-                            .text_size(px(FS_BODY))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_family(mono())
+                            .text_size(px(fs_body()))
+                            .font_weight(weight_medium())
                             .child(t!("projects.global").to_string()),
                     )
                     .child(
                         div()
-                            .font_family(MONO)
-                            .text_size(px(FS_SMALL))
+                            .font_family(mono())
+                            .text_size(px(fs_small()))
                             .text_color(p.muted)
                             .truncate()
                             .child(match global_skill_count {
@@ -635,15 +637,8 @@ impl KitterApp {
                 this.projects_view.project_agents_expanded = false;
                 cx.notify();
             }));
-        let recent_panel = div()
+        let recent_panel = kit::pane(p)
             .w_full()
-            .min_w_0()
-            .min_h_0()
-            .h_full()
-            .flex_none()
-            .flex()
-            .flex_col()
-            .bg(p.surface)
             .child(
                 self.panel_header(
                     "projects-panel-window-drag",
@@ -702,7 +697,7 @@ impl KitterApp {
                     .items_center()
                     .justify_center()
                     .gap(px(8.))
-                    .text_size(px(FS_BODY))
+                    .text_size(px(fs_body()))
                     .text_color(p.muted)
                     .child(self.shell.spinner_accent.clone())
                     .child(t!("projects.scanning_project").to_string())
@@ -874,7 +869,7 @@ impl KitterApp {
                         .px(px(24.))
                         .pt(px(24.))
                         .pb(px(16.))
-                        .border_b_1()
+                        .border_b(px(divider_w()))
                         .border_color(p.border)
                         .child(kit::detail_header(
                             p,
@@ -883,7 +878,7 @@ impl KitterApp {
                             } else {
                                 "icons/folder.svg"
                             },
-                            div().font_family(MONO).child(self.selectable_text(
+                            div().font_family(mono()).child(self.selectable_text(
                                 "project-detail-name",
                                 300,
                                 if is_global {
@@ -898,7 +893,7 @@ impl KitterApp {
                                 window,
                                 cx,
                             )),
-                            div().font_family(MONO).child(self.selectable_text(
+                            div().font_family(mono()).child(self.selectable_text(
                                 "project-detail-path",
                                 301,
                                 display_path(open_project),
@@ -914,7 +909,7 @@ impl KitterApp {
                         .pt(px(10.))
                         .pb(px(12.))
                         .flex_none()
-                        .border_b_1()
+                        .border_b(px(divider_w()))
                         .border_color(p.border)
                         .child(context_panel),
                 )
@@ -937,7 +932,7 @@ impl KitterApp {
                     .mt(px(8.))
                     .max_w(px(430.))
                     .text_center()
-                    .text_size(px(FS_BODY))
+                    .text_size(px(fs_body()))
                     .line_height(relative(1.55))
                     .text_color(p.muted)
                     .child(t!("projects.empty_hint").to_string()),
@@ -951,7 +946,7 @@ impl KitterApp {
                     true,
                 )
                 .mt(px(16.))
-                .child(Self::icon("icons/folder.svg", ICON_MD, p.secondary))
+                .child(Self::icon("icons/folder.svg", icon_md(), p.secondary))
                 .child(t!("projects.folder_picker").to_string())
                 .on_mouse_down(
                     MouseButton::Left,

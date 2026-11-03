@@ -259,7 +259,7 @@ impl KitterApp {
         for (index, name) in names.into_iter().enumerate() {
             entries = entries.child(
                 kit::card_row(p, index == 0)
-                    .child(Self::icon("icons/package.svg", ICON_MD, p.secondary))
+                    .child(Self::icon("icons/package.svg", icon_md(), p.secondary))
                     .child(kit::field_label(p, name).flex_1().min_w_0().truncate()),
             );
         }
@@ -318,10 +318,10 @@ impl KitterApp {
                 .flex_basis(relative(1. / 3.))
                 .flex_shrink_0()
                 .px(px(12.))
-                .border_t_1()
+                .border_t(px(divider_w()))
                 .border_color(p.border)
                 .when(right_border, |cell| {
-                    cell.border_r_1().border_color(p.border)
+                    cell.border_r(px(divider_w())).border_color(p.border)
                 })
                 .flex()
                 .items_center()
@@ -329,7 +329,7 @@ impl KitterApp {
                 .child(kit::agent_avatar(p, agent))
                 .child(
                     div()
-                        .text_size(px(FS_SMALL))
+                        .text_size(px(fs_small()))
                         .text_color(p.secondary)
                         .child(agent.name.clone()),
                 )
@@ -361,9 +361,11 @@ impl KitterApp {
                         .h(px(48.))
                         .flex_basis(relative(1. / 3.))
                         .flex_shrink_0()
-                        .border_t_1()
+                        .border_t(px(divider_w()))
                         .border_color(p.border)
-                        .when(index < 2, |cell| cell.border_r_1().border_color(p.border)),
+                        .when(index < 2, |cell| {
+                            cell.border_r(px(divider_w())).border_color(p.border)
+                        }),
                 );
             }
             universal_rows = universal_rows.child(row);
@@ -373,26 +375,26 @@ impl KitterApp {
                 div()
                     .id("target-universal")
                     .debug_selector(|| "target-universal".into())
-                    .h(px(ROW_2))
+                    .h(px(row_2()))
                     .px(px(16.))
-                    .rounded_t(px(R_CARD_INNER))
+                    .rounded_t(px(r_card_inner()))
                     .cursor_pointer()
-                    .when(universal, |row| row.bg(p.selected))
+                    .selected_fill(p, universal)
                     .flex()
                     .items_center()
                     .child(Checkbox::new("target-universal-checkbox").checked(universal))
                     .child(
                         div()
                             .ml(px(10.))
-                            .text_size(px(FS_BODY))
-                            .font_weight(FontWeight::MEDIUM)
+                            .text_size(px(fs_body()))
+                            .font_weight(weight_medium())
                             .child(t!("install.universal").to_string()),
                     )
                     .child(div().flex_1())
                     .child(
                         div()
-                            .font_family(MONO)
-                            .text_size(px(FS_SMALL))
+                            .font_family(mono())
+                            .text_size(px(fs_small()))
                             .text_color(p.muted)
                             .child(if self.install_flow.global {
                                 "~/.agents/skills"
@@ -424,7 +426,7 @@ impl KitterApp {
         for (index, agent) in independent.into_iter().enumerate() {
             independent_rows = independent_rows.child(
                 self.target_row(agent, cx)
-                    .when(index == last, |row| row.rounded_b(px(R_CARD_INNER))),
+                    .when(index == last, |row| row.rounded_b(px(r_card_inner()))),
             );
         }
         let independent_box = kit::card(p)
@@ -452,11 +454,11 @@ impl KitterApp {
                 let id = id.clone();
                 move || id.to_string()
             })
-            .h(px(ROW_2))
+            .h(px(row_2()))
             .px(px(16.))
-            .border_t_1()
+            .border_t(px(divider_w()))
             .border_color(p.border)
-            .when(active, |row| row.bg(p.selected))
+            .selected_fill(p, active)
             .flex()
             .items_center()
             .cursor_pointer()
@@ -465,14 +467,14 @@ impl KitterApp {
             .child(
                 div()
                     .ml(px(10.))
-                    .text_size(px(FS_BODY))
+                    .text_size(px(fs_body()))
                     .child(agent.name.clone()),
             )
             .child(div().flex_1())
             .child(
                 div()
-                    .font_family(MONO)
-                    .text_size(px(FS_SMALL))
+                    .font_family(mono())
+                    .text_size(px(fs_small()))
                     .text_color(p.muted)
                     .child(if self.install_flow.global {
                         dirs::home_dir()
@@ -633,21 +635,19 @@ impl KitterApp {
             .overflow_y_scroll()
             .child(
                 div()
-                    .text_size(px(FS_BODY))
+                    .text_size(px(fs_body()))
                     .line_height(relative(1.5))
                     .text_color(p.secondary)
                     .child(message),
             )
             .when_some(location, |body, location| {
                 body.child(
-                    div()
+                    kit::inset_box(p)
                         .mt(px(12.))
                         .px(px(10.))
                         .py(px(8.))
-                        .rounded(px(R_MD))
-                        .bg(p.raised)
-                        .font_family(MONO)
-                        .text_size(px(FS_SMALL))
+                        .font_family(mono())
+                        .text_size(px(fs_small()))
                         .text_color(p.secondary)
                         .child(location),
                 )
@@ -663,9 +663,9 @@ impl KitterApp {
                     body = body.child(
                         div()
                             .mt(px(12.))
-                            .font_family(MONO)
-                            .text_size(px(FS_SMALL))
-                            .font_weight(FontWeight::SEMIBOLD)
+                            .font_family(mono())
+                            .text_size(px(fs_small()))
+                            .font_weight(weight_semibold())
                             .child(skill.name.clone()),
                     );
                 }
@@ -690,18 +690,14 @@ impl KitterApp {
                         _ => None,
                     };
                     body = body.child(
-                        div()
+                        kit::option_tile(p)
                             .id(ElementId::Name(
                                 format!("delete-path-{}", path.display()).into(),
                             ))
                             .mt(px(6.))
-                            .min_h(px(ROW_2))
+                            .min_h(px(row_2()))
                             .px(px(12.))
                             .py(px(8.))
-                            .rounded(px(R_MD))
-                            .border_1()
-                            .border_color(p.border)
-                            .bg(p.surface)
                             .flex()
                             .items_center()
                             .cursor_pointer()
@@ -720,12 +716,12 @@ impl KitterApp {
                                             .flex()
                                             .items_center()
                                             .gap(px(8.))
-                                            .text_size(px(FS_BODY))
+                                            .text_size(px(fs_body()))
                                             .child(target)
                                             .when(*batch && deletes_files, |title| {
                                                 title.child(
                                                     div()
-                                                        .text_size(px(FS_CAPTION))
+                                                        .text_size(px(fs_caption()))
                                                         .text_color(p.danger)
                                                         .child(
                                                             t!("install.delete_files").to_string(),
@@ -736,8 +732,8 @@ impl KitterApp {
                                     .child(
                                         div()
                                             .mt(px(2.))
-                                            .font_family(MONO)
-                                            .text_size(px(FS_CAPTION))
+                                            .font_family(mono())
+                                            .text_size(px(fs_caption()))
                                             .text_color(p.muted)
                                             .truncate()
                                             .child(display_path(&path)),
@@ -746,8 +742,8 @@ impl KitterApp {
                                         row.child(
                                             div()
                                                 .mt(px(2.))
-                                                .font_family(MONO)
-                                                .text_size(px(FS_CAPTION))
+                                                .font_family(mono())
+                                                .text_size(px(fs_caption()))
                                                 .text_color(p.muted)
                                                 .child(
                                                     t!("install.original_path", path = source)

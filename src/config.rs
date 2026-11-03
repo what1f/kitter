@@ -2,7 +2,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
-    sync::OnceLock,
+    sync::{OnceLock, RwLock},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -50,12 +50,22 @@ pub enum Theme {
     Dark,
 }
 
+/// Theme of the desktop app when none is picked: a built-in id or the file
+/// stem of a theme under `<data dir>/themes`. Independent of light / dark.
+pub const DEFAULT_THEME_STYLE: &str = "standard";
+
+fn default_theme_style() -> String {
+    DEFAULT_THEME_STYLE.into()
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppConfig {
     #[serde(default)]
     pub language: Language,
     #[serde(default)]
     pub theme: Theme,
+    #[serde(default = "default_theme_style")]
+    pub theme_style: String,
     pub library_dir: PathBuf,
     #[serde(default)]
     // Persist every known project; activity determines display order, not retention.
@@ -66,6 +76,11 @@ pub struct AppConfig {
     pub collapsed_skill_groups: BTreeSet<String>,
     #[serde(default)]
     pub collapsed_skill_groups_initialized: bool,
+    /// The stored library path when loading fell back to another one, as
+    /// `(fallback, stored)`. Saving keeps the stored path so a drive that is
+    /// only missing for now does not lose the setting.
+    #[serde(skip)]
+    pub(crate) library_fallback: Option<(PathBuf, PathBuf)>,
 }
 
 impl Default for AppConfig {
@@ -73,24 +88,102 @@ impl Default for AppConfig {
         Self {
             language: Language::System,
             theme: Theme::System,
+            theme_style: default_theme_style(),
             library_dir: app_data_dir().join("skills"),
             recent_projects: vec![],
             project_activity: BTreeMap::new(),
             collapsed_skill_groups: BTreeSet::new(),
             collapsed_skill_groups_initialized: false,
+            library_fallback: None,
         }
     }
 }
 
-pub fn app_data_dir() -> PathBuf {
-    if let Some(path) = std::env::var_os("KITTER_HOME") {
-        return PathBuf::from(path);
-    }
+/// Name of the file in the default data folder that points to a chosen one.
+pub(crate) const LOCATION_FILE: &str = "location.json";
+
+#[derive(Serialize, Deserialize)]
+struct Location {
+    path: PathBuf,
+}
+
+/// The platform's data folder. It also holds the pointer to a chosen folder.
+pub fn default_data_dir() -> PathBuf {
     #[cfg(target_os = "windows")]
     let base = dirs::data_local_dir();
     #[cfg(not(target_os = "windows"))]
     let base = dirs::data_dir();
     base.unwrap_or_else(|| PathBuf::from(".")).join("Kitter")
+}
+
+fn data_dir_cache() -> &'static RwLock<Option<PathBuf>> {
+    static CACHE: OnceLock<RwLock<Option<PathBuf>>> = OnceLock::new();
+    CACHE.get_or_init(|| RwLock::new(None))
+}
+
+/// `KITTER_HOME`, else the chosen folder, else the platform default. Resolved
+/// once per process, so a running app never switches folders midway.
+pub fn app_data_dir() -> PathBuf {
+    if let Some(path) = std::env::var_os("KITTER_HOME") {
+        return PathBuf::from(path);
+    }
+    if let Some(path) = data_dir_cache().read().unwrap().clone() {
+        return path;
+    }
+    let default = default_data_dir();
+    let path = read_location(&default).unwrap_or(default);
+    *data_dir_cache().write().unwrap() = Some(path.clone());
+    path
+}
+
+pub(crate) fn read_location(default_dir: &Path) -> Option<PathBuf> {
+    let bytes = fs::read(default_dir.join(LOCATION_FILE)).ok()?;
+    let location = serde_json::from_slice::<Location>(&bytes).ok()?;
+    location.path.is_absolute().then_some(location.path)
+}
+
+/// Point the default folder at `path`, or drop the pointer when it is the default.
+pub(crate) fn write_location(default_dir: &Path, path: &Path) -> Result<()> {
+    let pointer = default_dir.join(LOCATION_FILE);
+    if path == default_dir {
+        match fs::remove_file(&pointer) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err(error.into()),
+            _ => {}
+        }
+    } else {
+        save_json(
+            &pointer,
+            &Location {
+                path: path.to_path_buf(),
+            },
+        )?;
+    }
+    Ok(())
+}
+
+pub(crate) fn set_app_data_dir(path: &Path) {
+    *data_dir_cache().write().unwrap() = Some(path.to_path_buf());
+}
+
+/// The library lives in `<data>/skills`; older configs store it as an absolute
+/// path. Follow the data folder when it was copied or moved by hand.
+fn resolve_library_dir(data_dir: &Path, stored: PathBuf) -> PathBuf {
+    if stored.is_relative() {
+        return data_dir.join(stored);
+    }
+    let own = data_dir.join("skills");
+    if stored == own || !own.is_dir() {
+        return stored;
+    }
+    let other_data_folder = stored.file_name().is_some_and(|name| name == "skills")
+        && stored
+            .parent()
+            .is_some_and(|parent| parent.join("config.json").is_file());
+    if !stored.exists() || other_data_folder {
+        own
+    } else {
+        stored
+    }
 }
 
 impl AppConfig {
@@ -112,15 +205,31 @@ impl AppConfig {
         }
         let bytes = fs::read(&path)
             .with_context(|| t!("errors.config_read_failed", path = path.display()).to_string())?;
-        serde_json::from_slice(&bytes).context(t!("errors.config_invalid").to_string())
+        let mut config: Self =
+            serde_json::from_slice(&bytes).context(t!("errors.config_invalid").to_string())?;
+        let stored = config.library_dir.clone();
+        config.library_dir = resolve_library_dir(data_dir, stored.clone());
+        if config.library_dir != stored && stored.is_absolute() {
+            config.library_fallback = Some((config.library_dir.clone(), stored));
+        }
+        Ok(config)
     }
 
     pub fn save(&self) -> Result<()> {
         self.save_to(&app_data_dir())
     }
 
+    // The path stays absolute so older versions can still read it; loading
+    // falls back to the folder's own `skills` after the folder is moved.
     pub fn save_to(&self, data_dir: &Path) -> Result<()> {
-        save_json(&data_dir.join("config.json"), self)
+        match &self.library_fallback {
+            Some((fallback, stored)) if fallback == &self.library_dir => {
+                let mut config = self.clone();
+                config.library_dir = stored.clone();
+                save_json(&data_dir.join("config.json"), &config)
+            }
+            _ => save_json(&data_dir.join("config.json"), self),
+        }
     }
 
     pub fn remember_project(&mut self, path: PathBuf) {
@@ -195,9 +304,51 @@ pub fn save_json(path: &Path, value: &impl Serialize) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_missing_library_is_kept_in_the_saved_config() {
+        let temp = tempfile::tempdir().unwrap();
+        let data = temp.path().join("data");
+        std::fs::create_dir_all(data.join("skills")).unwrap();
+        let offline = temp.path().join("unmounted/skills");
+        std::fs::write(
+            data.join("config.json"),
+            serde_json::to_vec(&serde_json::json!({"library_dir": offline})).unwrap(),
+        )
+        .unwrap();
+
+        let mut config = AppConfig::load_from(&data).unwrap();
+        assert_eq!(config.library_dir, data.join("skills"));
+        config.save_to(&data).unwrap();
+        let stored: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(data.join("config.json")).unwrap()).unwrap();
+        assert_eq!(stored["library_dir"], offline.to_string_lossy().as_ref());
+
+        let chosen = temp.path().join("chosen");
+        std::fs::create_dir_all(&chosen).unwrap();
+        config.library_dir = chosen.clone();
+        config.save_to(&data).unwrap();
+        assert_eq!(AppConfig::load_from(&data).unwrap().library_dir, chosen);
+    }
+
     use std::path::PathBuf;
 
     use super::{AppConfig, Language};
+
+    #[test]
+    fn theme_style_defaults_to_standard_and_round_trips() {
+        let old: AppConfig =
+            serde_json::from_str(r#"{"theme":"dark","library_dir":"/tmp/skills"}"#).unwrap();
+        assert_eq!(old.theme_style, "standard");
+
+        let config = AppConfig {
+            theme_style: "solid_glass".into(),
+            ..AppConfig::default()
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains(r#""theme_style":"solid_glass""#));
+        let back: AppConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.theme_style, "solid_glass");
+    }
 
     #[test]
     fn resolves_chinese_locale_variants() {

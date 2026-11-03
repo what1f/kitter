@@ -19,13 +19,6 @@ impl KitterApp {
             .as_ref()
             .filter(|(origin, target, _)| *origin == scope && target == &id && cx.has_active_drag())
             .map(|(_, _, position)| *position);
-        let dots = || {
-            div()
-                .flex()
-                .flex_col()
-                .gap(px(2.))
-                .children((0..3).map(|_| div().size(px(3.)).rounded_full().bg(p.muted)))
-        };
         let row_selector = format!("sort-group-{id}");
         let drag = GroupDrag {
             scope,
@@ -49,7 +42,7 @@ impl KitterApp {
                 .tab_index(0)
                 .focus_visible(|handle| handle.opacity(1.))
                 .group_hover(key.clone(), |handle| handle.opacity(1.))
-                .child(div().flex().gap(px(2.)).child(dots()).child(dots()))
+                .child(kit::grip(p))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_click(|_, _, cx| cx.stop_propagation())
                 .on_drag(drag, |drag, _, _, cx| cx.new(|_| drag.clone()));
@@ -112,14 +105,8 @@ impl KitterApp {
                 cx.notify();
             }))
             .when_some(position, |row, position| {
-                let line = div()
-                    .debug_selector(|| format!("group-drop-line-{scope:?}"))
-                    .absolute()
-                    .left_0()
-                    .right_0()
-                    .h(px(2.))
-                    .rounded_full()
-                    .bg(p.accent);
+                let line =
+                    kit::drop_line(p).debug_selector(|| format!("group-drop-line-{scope:?}"));
                 row.child(match position {
                     TagDropPosition::Before => line.top(px(-2.)),
                     TagDropPosition::After => line.bottom(px(-2.)),
@@ -142,18 +129,28 @@ impl KitterApp {
         kit::segment(self.palette(), id, label, active).on_click(cx.listener(
             move |this, _, window, cx| {
                 apply(this);
-                let mode = match this.model.library.config.theme {
-                    Theme::Light => ComponentThemeMode::Light,
-                    Theme::Dark => ComponentThemeMode::Dark,
-                    Theme::System if this.shell.system_dark => ComponentThemeMode::Dark,
-                    Theme::System => ComponentThemeMode::Light,
-                };
-                apply_component_theme(mode, Some(window), cx);
-                let _ = this.model.library.save();
-                this.sync_spinner_palette(cx);
-                cx.notify();
+                this.apply_appearance(window, cx);
             },
         ))
+    }
+
+    /// Re-theme the app after the colour mode or style changed, and save it.
+    pub(super) fn apply_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let mode = match self.model.library.config.theme {
+            Theme::Light => ComponentThemeMode::Light,
+            Theme::Dark => ComponentThemeMode::Dark,
+            Theme::System if self.shell.system_dark => ComponentThemeMode::Dark,
+            Theme::System => ComponentThemeMode::Light,
+        };
+        apply_component_theme(
+            mode,
+            &self.model.library.config.theme_style,
+            Some(window),
+            cx,
+        );
+        let _ = self.model.library.save();
+        self.sync_spinner_palette(cx);
+        cx.notify();
     }
 
     pub(super) fn tag_management_row(
@@ -182,15 +179,6 @@ impl KitterApp {
             tag_id,
             name: name.clone(),
         };
-        let dot_column = || {
-            div()
-                .flex()
-                .flex_col()
-                .gap(px(2.))
-                .child(div().size(px(3.)).rounded_full().bg(p.muted))
-                .child(div().size(px(3.)).rounded_full().bg(p.muted))
-                .child(div().size(px(3.)).rounded_full().bg(p.muted))
-        };
         let drag_handle = div()
             .id(ElementId::Name(format!("drag-tag-{tag_id}").into()))
             .absolute()
@@ -206,17 +194,11 @@ impl KitterApp {
             .tab_index(0)
             .focus_visible(|handle| handle.opacity(1.))
             .group_hover(group.clone(), |handle| handle.opacity(1.))
-            .child(
-                div()
-                    .flex()
-                    .gap(px(2.))
-                    .child(dot_column())
-                    .child(dot_column()),
-            )
+            .child(kit::grip(p))
             .on_drag(drag, |drag, _, _, cx| cx.new(|_| drag.clone()));
         let mut actions = div()
-            .w(px(H_SM * 2. + 2.))
-            .h(px(H_SM))
+            .w(px(h_sm() * 2. + 2.))
+            .h(px(h_sm()))
             .invisible()
             .group_hover(group.clone(), |actions| actions.visible())
             .flex()
@@ -259,7 +241,7 @@ impl KitterApp {
         )
         .w_auto()
         .group(group)
-        .h(px(ROW_1 + 4.))
+        .h(px(row_1() + 4.))
         .ml(px(-24.))
         .pl(px(if is_child { 42. } else { 24. }))
         .pr(px(6.))
@@ -329,13 +311,7 @@ impl KitterApp {
             this.notify_dialog(cx);
         }))
         .when_some(drop_position, |row, position| {
-            let line = div()
-                .absolute()
-                .left_0()
-                .right_0()
-                .h(px(2.))
-                .rounded_full()
-                .bg(p.accent);
+            let line = kit::drop_line(p);
             row.child(match position {
                 TagDropPosition::Before => line.top(px(-2.)),
                 TagDropPosition::After => line.bottom(px(-2.)),
@@ -347,8 +323,8 @@ impl KitterApp {
                 .id(ElementId::Name(format!("edit-tag-name-{tag_id}").into()))
                 .min_w_0()
                 .flex_1()
-                .font_family(MONO)
-                .text_size(px(FS_BODY))
+                .font_family(mono())
+                .text_size(px(fs_body()))
                 .text_color(if is_child { p.secondary } else { p.text })
                 .cursor_pointer()
                 .truncate()
@@ -371,7 +347,7 @@ impl KitterApp {
         let can_save = !self.tags_flow.name_input.read(cx).value().trim().is_empty();
         div()
             .id(ElementId::Name(id.into()))
-            .min_h(px(ROW_1 + 4.))
+            .min_h(px(row_1() + 4.))
             .pl(px(if is_child { 18. } else { 0. }))
             .pr(px(6.))
             .flex()
@@ -381,11 +357,11 @@ impl KitterApp {
             .child(
                 kit::input(p, &self.tags_flow.name_input)
                     .small()
-                    .h(px(H_SM))
+                    .h(px(h_sm()))
                     .min_w_0()
                     .flex_1()
                     .pl(px(0.))
-                    .prefix(div().font_family(MONO).text_color(p.muted).child("#")),
+                    .prefix(div().font_family(mono()).text_color(p.muted).child("#")),
             )
             .child(
                 kit::icon_button(
@@ -438,7 +414,7 @@ impl KitterApp {
                         .items_center()
                         .justify_center()
                         .text_color(p.muted)
-                        .text_size(px(FS_BODY))
+                        .text_size(px(fs_body()))
                         .child(t!("common.no_tags_yet").to_string()),
                 )
             });
@@ -470,7 +446,7 @@ impl KitterApp {
             .mt(px(6.))
             .ml(px(-10.))
             .self_start()
-            .child(Self::icon("icons/plus.svg", ICON_SM, p.secondary))
+            .child(Self::icon("icons/plus.svg", icon_sm(), p.secondary))
             .child(t!("organize.new_tag").to_string())
             .on_click(cx.listener(|this, _, window, cx| {
                 this.start_tag_edit(TagEdit::CreateRoot, window, cx);
@@ -501,63 +477,54 @@ impl KitterApp {
                         ),
                     }
                 };
-                div()
-                    .mt(px(12.))
-                    .p(px(12.))
-                    .rounded(px(R_MD))
-                    .bg(p.danger_soft)
-                    .text_size(px(FS_BODY))
-                    .child(message)
-                    .child(
-                        div()
-                            .mt(px(10.))
-                            .flex()
-                            .justify_end()
-                            .gap(px(8.))
-                            .child(
-                                kit::button(
-                                    p,
-                                    "cancel-delete-tag",
-                                    kit::ButtonKind::Ghost,
-                                    kit::Size::Sm,
-                                    true,
-                                )
-                                .child(t!("common.cancel").to_string())
-                                .on_click(cx.listener(
-                                    |this, _, _, cx| {
-                                        this.tags_flow.delete_pending = None;
-                                        this.notify_dialog(cx);
-                                    },
-                                )),
+                kit::danger_note(p).mt(px(12.)).child(message).child(
+                    div()
+                        .mt(px(10.))
+                        .flex()
+                        .justify_end()
+                        .gap(px(8.))
+                        .child(
+                            kit::button(
+                                p,
+                                "cancel-delete-tag",
+                                kit::ButtonKind::Ghost,
+                                kit::Size::Sm,
+                                true,
                             )
-                            .child(
-                                kit::button(
-                                    p,
-                                    "confirm-delete-tag",
-                                    kit::ButtonKind::Danger,
-                                    kit::Size::Sm,
-                                    true,
-                                )
-                                .child(t!("common.delete").to_string())
-                                .on_click(cx.listener(
-                                    move |this, _, _, cx| {
-                                        this.tags_for_mut(scope).delete(id);
-                                        this.persist_tags();
-                                        let selected = this.tag_filter_for(scope);
-                                        if selected == Some(id)
-                                            || selected.is_some_and(|selected| {
-                                                this.tags_for(scope).tag(selected).is_none()
-                                            })
-                                        {
-                                            this.set_tag_filter(scope, None);
-                                        }
-                                        this.tags_flow.delete_pending = None;
-                                        this.notify_dialog(cx);
-                                        cx.notify();
-                                    },
-                                )),
-                            ),
-                    )
+                            .child(t!("common.cancel").to_string())
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.tags_flow.delete_pending = None;
+                                this.notify_dialog(cx);
+                            })),
+                        )
+                        .child(
+                            kit::button(
+                                p,
+                                "confirm-delete-tag",
+                                kit::ButtonKind::Danger,
+                                kit::Size::Sm,
+                                true,
+                            )
+                            .child(t!("common.delete").to_string())
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    this.tags_for_mut(scope).delete(id);
+                                    this.persist_tags();
+                                    let selected = this.tag_filter_for(scope);
+                                    if selected == Some(id)
+                                        || selected.is_some_and(|selected| {
+                                            this.tags_for(scope).tag(selected).is_none()
+                                        })
+                                    {
+                                        this.set_tag_filter(scope, None);
+                                    }
+                                    this.tags_flow.delete_pending = None;
+                                    this.notify_dialog(cx);
+                                    cx.notify();
+                                },
+                            )),
+                        ),
+                )
             })
         });
         let title = match scope {
@@ -618,21 +585,21 @@ impl KitterApp {
             ElementId::Name(format!("dialog-assign-tag-{tag_id}").into()),
             false,
         )
-        .h(px(ROW_1))
+        .h(px(row_1()))
         .pl(px(if is_child { 32. } else { 8. }))
         .gap(px(0.))
         .child(
             div()
                 .min_w_0()
                 .flex_1()
-                .font_family(MONO)
-                .text_size(px(FS_BODY))
+                .font_family(mono())
+                .text_size(px(fs_body()))
                 .text_color(if is_child { p.secondary } else { p.text })
                 .truncate()
                 .child(format!("#{name}")),
         )
         .when(checked, |row| {
-            row.child(Self::icon("icons/check.svg", ICON_SM, p.text))
+            row.child(Self::icon("icons/check.svg", icon_sm(), p.text))
         })
         .when(mixed, |row| {
             row.child(
@@ -683,7 +650,7 @@ impl KitterApp {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .text_size(px(FS_BODY))
+                    .text_size(px(fs_body()))
                     .text_color(p.muted)
                     .child(t!("common.no_tags_yet").to_string()),
             );
@@ -700,8 +667,8 @@ impl KitterApp {
                 div()
                     .px(px(20.))
                     .mt(px(2.))
-                    .font_family(MONO)
-                    .text_size(px(FS_SMALL))
+                    .font_family(mono())
+                    .text_size(px(fs_small()))
                     .text_color(p.muted)
                     .truncate()
                     .child(label),
@@ -722,7 +689,7 @@ impl KitterApp {
                             true,
                         )
                         .mt(px(6.))
-                        .child(Self::icon("icons/plus.svg", ICON_SM, p.secondary))
+                        .child(Self::icon("icons/plus.svg", icon_sm(), p.secondary))
                         .child(t!("organize.new_tag").to_string())
                         .on_click(
                             cx.listener(|this, _, _, cx| {
@@ -815,8 +782,8 @@ impl KitterApp {
                     .overflow_y_scroll()
                     .child(
                         div()
-                            .font_family(MONO)
-                            .text_size(px(FS_SMALL))
+                            .font_family(mono())
+                            .text_size(px(fs_small()))
                             .text_color(p.muted)
                             .truncate()
                             .child(skill_name),
@@ -825,7 +792,7 @@ impl KitterApp {
                         body.child(
                             div()
                                 .mt(px(2.))
-                                .text_size(px(FS_SMALL))
+                                .text_size(px(fs_small()))
                                 .text_color(p.muted)
                                 .child(t!("organize.current_groups_differ").to_string()),
                         )

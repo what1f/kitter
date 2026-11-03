@@ -72,6 +72,22 @@ export default defineAgent({
 
 Manage agents directly from desktop **Settings** or via `kitter agents` (add, remove, update, enable/disable, and reorder).
 
+### Custom Themes
+
+Besides the built-in Default and Solid Glass styles, the desktop app loads your own themes. A theme can change colours, surface finish (gradients, textures, image frames), corner radii, fonts, sizes and icons; list only what you want to change (see [Custom Themes](./docs/themes.md)):
+
+```json
+{
+  "name": "Ocean",
+  "extends": "solid_glass",
+  "shape": { "radius_xl": 16 },
+  "light": { "colors": { "accent": "#0a7cff" } },
+  "dark": { "colors": { "accent": "#5fb0ff" } }
+}
+```
+
+A theme is a single JSON file, or a folder that also carries its own icons, fonts and images for textures and frames. Switch themes in **Settings → Style**, or create, check, share and apply them with `kitter theme`.
+
 ---
 
 ## Install Kitter
@@ -183,15 +199,20 @@ The skill lets an agent inspect the current machine, add or adopt skill sources,
 
 ## Local data
 
-Kitter stores configuration and source records in the operating system's application-data directory. Skill contents live in the library directory:
+Kitter keeps skills, presets, and settings in one data folder:
 
-| Platform | Default skill library |
+| Platform | Default data folder |
 | --- | --- |
-| **macOS** | `~/Library/Application Support/Kitter/skills` |
-| **Windows** | `%LOCALAPPDATA%\Kitter\skills` |
-| **Linux** | `$XDG_DATA_HOME/Kitter/skills` or `~/.local/share/Kitter/skills` |
+| **macOS** | `~/Library/Application Support/Kitter` |
+| **Windows** | `%LOCALAPPDATA%\Kitter` |
+| **Linux** | `$XDG_DATA_HOME/Kitter` or `~/.local/share/Kitter` |
 
-View or change the location with `kitter library` and `kitter library --set /absolute/path`.
+To keep it somewhere else, pick a folder in **Settings → Data**, or run `kitter data --set /absolute/path`:
+
+- An empty folder: Kitter moves your data there and updates the skills it installed.
+- A folder that already holds Kitter data, such as a backup or a synced copy: Kitter switches to it and leaves the current data where it is.
+
+`kitter data` shows the folder in use.
 
 ---
 

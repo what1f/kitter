@@ -1,0 +1,124 @@
+{
+  "name": "Standard",
+  "font": {
+    "ui": ".SystemUIFont",
+    "mono": "JetBrains Mono",
+    "medium": 500,
+    "semibold": 600
+  },
+  "text": {
+    "caption": 11,
+    "small": 12,
+    "body": 13,
+    "emphasis": 14,
+    "title": 16,
+    "display": 20
+  },
+  "shape": {
+    "radius_sm": 6,
+    "radius_md": 8,
+    "radius_lg": 10,
+    "radius_xl": 12,
+    "radius_modal": 16,
+    "radius_pill": 999,
+    "border": 1,
+    "divider": 1
+  },
+  "size": {
+    "control_sm": 28,
+    "control_md": 32,
+    "row": 32,
+    "row_double": 48,
+    "row_setting": 56,
+    "pane_header": 52,
+    "card_header": 36,
+    "file_bar": 40,
+    "tab_bar": 44,
+    "segment": 24,
+    "chip": 24,
+    "badge": 20,
+    "avatar": 24,
+    "icon": 16,
+    "icon_sm": 14,
+    "icon_xs": 12
+  },
+  "materials": {
+    "popover": {
+      "shadows": [
+        "0 10 15 -3 shadow",
+        "0 4 6 -4 shadow"
+      ]
+    },
+    "dialog": {
+      "shadows": [
+        "0 25 50 -12 shadow_deep"
+      ]
+    }
+  },
+  "light": {
+    "colors": {
+      "window": "#f5f5f5",
+      "window_border": "#64646459",
+      "base": "#ffffff",
+      "sidebar": "#ffffffb3",
+      "pane": "#ffffff",
+      "surface": "#ffffff",
+      "elevated": "#ffffff",
+      "avatar": "#f2f2f2",
+      "raised": "#0d0d0d0d",
+      "hover": "#0d0d0d0a",
+      "selected": "#0d0d0d14",
+      "border": "#0d0d0d14",
+      "border_strong": "#0d0d0d21",
+      "text": "#0d0d0d",
+      "sidebar_text": "#0d0d0dd9",
+      "secondary": "#0d0d0db0",
+      "muted": "#0d0d0d7d",
+      "accent": "#0169cc",
+      "focus": "#0169cc",
+      "primary": "#0d0d0d",
+      "on_primary": "#ffffff",
+      "success": "#1a7f37",
+      "warning": "#c98700",
+      "danger": "#e02e2a",
+      "danger_soft": "#e02e2a17",
+      "overlay": "#00000024",
+      "on_danger": "#ffffff",
+      "shadow": "#0000001a",
+      "shadow_deep": "#00000040"
+    }
+  },
+  "dark": {
+    "colors": {
+      "window": "#141414",
+      "window_border": "#b0b0b04d",
+      "base": "#181818",
+      "sidebar": "#181818",
+      "pane": "#1c1c1c",
+      "surface": "#1c1c1c",
+      "elevated": "#262626",
+      "avatar": "#2a2a2a",
+      "raised": "#ffffff0f",
+      "hover": "#ffffff0d",
+      "selected": "#ffffff1a",
+      "border": "#ffffff14",
+      "border_strong": "#ffffff24",
+      "text": "#dfdfdf",
+      "sidebar_text": "#ffffffd9",
+      "secondary": "#ffffffb5",
+      "muted": "#ffffff80",
+      "accent": "#339cff",
+      "focus": "#339cff",
+      "primary": "#ececec",
+      "on_primary": "#0d0d0d",
+      "success": "#3fb950",
+      "warning": "#e3b341",
+      "danger": "#ff6762",
+      "danger_soft": "#ff67621f",
+      "overlay": "#00000066",
+      "on_danger": "#ffffff",
+      "shadow": "#0000001a",
+      "shadow_deep": "#00000040"
+    }
+  }
+}

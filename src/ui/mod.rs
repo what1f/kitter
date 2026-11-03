@@ -65,15 +65,19 @@ mod settings_page;
 mod skill_selection;
 mod skills_page;
 mod state;
+mod surface_art;
 mod tags_groups_actions;
 mod theme;
+mod theme_file;
 
 use effective_view::{
     EffectivePluginGroup, EffectiveSkillRow, ProjectRenderSnapshot, ProjectSnapshot,
 };
 use gpui_component::resizable::ResizableState;
+use kit::{FillExt, HoverFillExt};
 use skill_selection::SkillSelection;
 use state::*;
+use surface_art::SurfaceExt;
 use theme::*;
 
 fn display_path(path: &Path) -> String {
@@ -195,8 +199,8 @@ impl SelectItem for SourceChoice {
     fn display_title(&self) -> Option<AnyElement> {
         Some(
             div()
-                .font_family(FONT_UI)
-                .text_size(px(FS_BODY))
+                .font_family(font_ui())
+                .text_size(px(fs_body()))
                 .child(self.label.clone())
                 .into_any_element(),
         )
@@ -204,8 +208,8 @@ impl SelectItem for SourceChoice {
 
     fn render(&self, _: &mut Window, _: &mut App) -> impl IntoElement {
         div()
-            .font_family(FONT_UI)
-            .text_size(px(FS_BODY))
+            .font_family(font_ui())
+            .text_size(px(fs_body()))
             .child(self.label.clone())
     }
 
@@ -229,6 +233,7 @@ enum DialogKind {
     PresetConfirm,
     AgentAdd,
     AgentSource,
+    DataLocation,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -349,16 +354,16 @@ impl SelectItem for ProjectChoice {
                 .justify_center()
                 .child(
                     div()
-                        .font_family(FONT_UI)
-                        .text_size(px(FS_BODY))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_family(font_ui())
+                        .text_size(px(fs_body()))
+                        .font_weight(weight_medium())
                         .child(self.title()),
                 )
                 .child(
                     div()
                         .mt(px(2.))
-                        .font_family(MONO)
-                        .text_size(px(FS_SMALL))
+                        .font_family(mono())
+                        .text_size(px(fs_small()))
                         .opacity(0.6)
                         .truncate()
                         .child(display_path(&self.path)),
@@ -376,16 +381,16 @@ impl SelectItem for ProjectChoice {
             .justify_center()
             .child(
                 div()
-                    .font_family(FONT_UI)
-                    .text_size(px(FS_BODY))
-                    .font_weight(FontWeight::MEDIUM)
+                    .font_family(font_ui())
+                    .text_size(px(fs_body()))
+                    .font_weight(weight_medium())
                     .child(self.title()),
             )
             .child(
                 div()
                     .mt(px(2.))
-                    .font_family(MONO)
-                    .text_size(px(FS_SMALL))
+                    .font_family(mono())
+                    .text_size(px(fs_small()))
                     .text_color(cx.theme().muted_foreground)
                     .truncate()
                     .child(display_path(&self.path)),
@@ -447,7 +452,7 @@ struct SpinnerView {
 
 impl Render for SpinnerView {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        motion::spin(KitterApp::icon(self.icon, self.size, self.color))
+        motion::spin(KitterApp::mono_icon(self.icon, self.size, self.color))
     }
 }
 
@@ -489,7 +494,12 @@ impl KitterApp {
             Theme::System if system_dark => ComponentThemeMode::Dark,
             Theme::System => ComponentThemeMode::Light,
         };
-        apply_component_theme(component_mode, Some(window), cx);
+        apply_component_theme(
+            component_mode,
+            &library.config.theme_style,
+            Some(window),
+            cx,
+        );
         let skills = library.list().unwrap_or_default();
         let known_groups = library
             .groups()
@@ -583,10 +593,7 @@ impl KitterApp {
                 cx,
             )
         });
-        let initial_palette = match component_mode {
-            ComponentThemeMode::Dark => Palette::dark(),
-            _ => Palette::light(),
-        };
+        let initial_palette = Palette::current(component_mode.is_dark());
         let spinner_accent = cx.new(|_| SpinnerView {
             icon: "icons/rotate-cw.svg",
             color: initial_palette.accent,
@@ -600,7 +607,7 @@ impl KitterApp {
         let spinner_update = cx.new(|_| SpinnerView {
             icon: "icons/loader-circle.svg",
             color: initial_palette.secondary,
-            size: ICON_SM,
+            size: icon_sm(),
         });
         let app = cx.entity();
         let weak_app = app.downgrade();
@@ -795,7 +802,9 @@ impl KitterApp {
                 notice_generation: 0,
                 system_dark,
                 dialog_body: None,
+                painting_dialog: false,
                 page_body,
+                data_location: None,
             },
             skills_view: SkillsState {
                 expanded_description: None,
@@ -914,11 +923,16 @@ impl KitterApp {
     }
 
     fn palette(&self) -> Palette {
-        match self.model.library.config.theme {
-            Theme::Light => Palette::light(),
-            Theme::Dark => Palette::dark(),
-            Theme::System if !self.shell.system_dark => Palette::light(),
-            Theme::System => Palette::dark(),
+        let dark = match self.model.library.config.theme {
+            Theme::Light => false,
+            Theme::Dark => true,
+            Theme::System => self.shell.system_dark,
+        };
+        let palette = Palette::current(dark);
+        if self.shell.painting_dialog {
+            palette.on_elevated()
+        } else {
+            palette
         }
     }
 
@@ -1392,20 +1406,26 @@ impl KitterApp {
 
 impl Render for DialogBody {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.app.update(cx, |app, app_cx| match self.kind {
-            DialogKind::AgentAdd => app.agent_add_modal(app_cx),
-            DialogKind::AgentSource => app.agent_source_modal(app_cx),
-            DialogKind::Add => app.add_skill_modal(window, app_cx),
-            DialogKind::Install => app.install_modal(window, app_cx),
-            DialogKind::Delete => app.delete_confirmation_modal(window, app_cx),
-            DialogKind::Tags => app.tag_management_modal(window, app_cx),
-            DialogKind::AssignTags => app.tag_assignment_modal(window, app_cx),
-            DialogKind::Groups => app.group_management_modal(window, app_cx),
-            DialogKind::DeleteGroup => app.group_delete_modal(app_cx),
-            DialogKind::MoveGroup => app.move_group_modal(window, app_cx),
-            DialogKind::PresetName => app.preset_name_modal(app_cx),
-            DialogKind::PresetSkills => app.preset_skills_modal(app_cx),
-            DialogKind::PresetConfirm => app.preset_confirm_modal(app_cx),
+        self.app.update(cx, |app, app_cx| {
+            app.shell.painting_dialog = true;
+            let body = match self.kind {
+                DialogKind::AgentAdd => app.agent_add_modal(app_cx),
+                DialogKind::AgentSource => app.agent_source_modal(app_cx),
+                DialogKind::Add => app.add_skill_modal(window, app_cx),
+                DialogKind::Install => app.install_modal(window, app_cx),
+                DialogKind::Delete => app.delete_confirmation_modal(window, app_cx),
+                DialogKind::Tags => app.tag_management_modal(window, app_cx),
+                DialogKind::AssignTags => app.tag_assignment_modal(window, app_cx),
+                DialogKind::Groups => app.group_management_modal(window, app_cx),
+                DialogKind::DeleteGroup => app.group_delete_modal(app_cx),
+                DialogKind::MoveGroup => app.move_group_modal(window, app_cx),
+                DialogKind::PresetName => app.preset_name_modal(app_cx),
+                DialogKind::PresetSkills => app.preset_skills_modal(app_cx),
+                DialogKind::PresetConfirm => app.preset_confirm_modal(app_cx),
+                DialogKind::DataLocation => app.data_location_modal(app_cx),
+            };
+            app.shell.painting_dialog = false;
+            body
         })
     }
 }
@@ -1427,9 +1447,7 @@ impl Render for KitterApp {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = self.palette();
         let content = self.shell.page_body.clone();
-        let mut root = div()
-            .size_full()
-            .relative()
+        let mut root = kit::window_ground(p)
             .track_focus(&self.shell.focus_handle)
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
                 if event.keystroke.key.eq_ignore_ascii_case("escape")
@@ -1438,20 +1456,8 @@ impl Render for KitterApp {
                     this.finish_skill_selection_mode(cx);
                     cx.stop_propagation();
                 }
-            }))
-            .font_family(FONT_UI)
-            .text_color(p.text)
-            .text_size(px(FS_EMPH))
-            .bg(p.window)
-            .flex();
-        let main = div()
-            .min_w_0()
-            .flex_1()
-            .min_h_0()
-            .h_full()
-            .bg(p.base)
-            .flex()
-            .flex_col();
+            }));
+        let main = kit::main_area(p);
         root = root.child(layout::shell(
             &self.shell.shell_layout,
             self.sidebar(cx),
@@ -1494,7 +1500,7 @@ impl Render for KitterApp {
                         .unwrap_or(current);
                     card = card.child(
                         div()
-                            .text_size(px(FS_SMALL))
+                            .text_size(px(fs_small()))
                             .text_color(p.secondary)
                             .truncate()
                             .child(current),
@@ -1521,32 +1527,17 @@ impl Render for KitterApp {
                 DialogKind::MoveGroup => px(420.),
                 DialogKind::PresetName | DialogKind::PresetConfirm => px(420.),
                 DialogKind::PresetSkills => px(520.),
+                DialogKind::DataLocation => px(420.),
             };
             root = root.child(
-                div()
-                    .absolute()
-                    .top(px(0.))
-                    .right(px(0.))
-                    .bottom(px(0.))
-                    .left(px(0.))
-                    .bg(p.overlay)
-                    .flex()
-                    .items_center()
-                    .justify_center()
+                kit::scrim(p)
                     .occlude()
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .child(
-                        div()
+                        kit::dialog_frame(p)
                             .id("dialog-frame")
                             .debug_selector(|| "dialog-frame".into())
                             .w(width)
-                            .max_h(px(680.))
-                            .rounded(px(R_2XL))
-                            .border_1()
-                            .border_color(p.border_strong)
-                            .bg(p.elevated)
-                            .overflow_hidden()
-                            .shadow_2xl()
                             .child(body),
                     ),
             );
@@ -2921,27 +2912,51 @@ fn open_main_window(cx: &mut App) {
             ..Default::default()
         },
         |window, cx| {
-            let view = cx.new(|cx| {
-                let app = KitterApp::new(window, cx);
-                cx.observe_window_bounds(window, |_, window, cx| {
-                    crate::platform::update_soft_window_shadow(window);
-                    cx.notify();
-                })
-                .detach();
-                app
-            });
-            crate::platform::configure_window_material(window, cx.theme().is_dark());
-            // Kitter uses the platform window decorations. The component Root's
-            // client-side border adds a full-window mouse-move layer that is
-            // only needed by borderless Linux windows.
-            cx.new(|cx| {
-                Root::new(view, window, cx)
-                    .bordered(false)
-                    .bg(cx.theme().background)
-            })
+            let view = main_view(window, cx);
+            cx.new(|cx| main_root(view, window, cx))
         },
     )
     .expect("failed to open Kitter window");
+}
+
+fn main_view(window: &mut Window, cx: &mut App) -> Entity<KitterApp> {
+    let view = cx.new(|cx| {
+        let app = KitterApp::new(window, cx);
+        cx.observe_window_bounds(window, |_, window, cx| {
+            crate::platform::update_soft_window_shadow(window);
+            cx.notify();
+        })
+        .detach();
+        app
+    });
+    crate::platform::configure_window_material(window, cx.theme().is_dark());
+    view
+}
+
+// Kitter uses the platform window decorations. The component Root's
+// client-side border adds a full-window mouse-move layer that is only needed
+// by borderless Linux windows.
+fn main_root(view: Entity<KitterApp>, window: &mut Window, cx: &mut Context<Root>) -> Root {
+    Root::new(view, window, cx)
+        .bordered(false)
+        .bg(cx.theme().background)
+}
+
+/// Rebuild every window from the current data folder.
+fn reload_windows(cx: &mut App, after: impl Fn(&mut KitterApp, &mut Context<KitterApp>) + 'static) {
+    for handle in cx.windows() {
+        let _ = handle.update(cx, |_, window, cx| {
+            let mut app = None;
+            window.replace_root(cx, |window, cx| {
+                let view = main_view(window, cx);
+                app = Some(view.clone());
+                main_root(view, window, cx)
+            });
+            if let Some(app) = app {
+                app.update(cx, |app, cx| after(app, cx));
+            }
+        });
+    }
 }
 
 pub fn run() {

@@ -3563,6 +3563,7 @@ dependencies = [
  "gpui-component-assets",
  "gpui_platform",
  "ignore",
+ "image",
  "junction",
  "libc",
  "objc2 0.6.4",

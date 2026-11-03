@@ -52,7 +52,7 @@ install -m 755 "${kitter_cli_tmp}/release/kitter" "$HOME/.local/bin/kitter"
 
 ## Windows
 
-The supported release target is Windows x86_64. Install the executable under the current user's local application data directory:
+The supported release target is Windows x86_64. Install the executable at `%USERPROFILE%\.local\bin\kitter.exe`:
 
 ```powershell
 if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
@@ -60,7 +60,7 @@ if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
 }
 
 $kitterCliTmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid())
-$kitterCliInstall = Join-Path $env:LOCALAPPDATA "Kitter\bin"
+$kitterCliInstall = Join-Path $env:USERPROFILE ".local\bin"
 New-Item -ItemType Directory -Force -Path $kitterCliTmp, $kitterCliInstall | Out-Null
 
 gh release download `

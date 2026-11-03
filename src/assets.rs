@@ -1,9 +1,50 @@
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+    path::PathBuf,
+    sync::{
+        RwLock,
+        atomic::{AtomicU64, Ordering},
+    },
+};
 
 use anyhow::Result;
 use gpui::{App, AssetSource, SharedString};
 
 pub struct Assets;
+
+/// Icon files of the active theme package, by icon name.
+static THEME_ICONS: RwLock<BTreeMap<String, PathBuf>> = RwLock::new(BTreeMap::new());
+static THEME_ICON_GENERATION: AtomicU64 = AtomicU64::new(0);
+const THEME_ICON_PREFIX: &str = "theme-icons/";
+
+/// Use `icons` in place of the built-in icons of the same names.
+pub fn set_theme_icons(icons: BTreeMap<String, PathBuf>) {
+    if let Ok(mut slot) = THEME_ICONS.write() {
+        *slot = icons;
+    }
+    THEME_ICON_GENERATION.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Asset path of the theme's replacement for icon `name`. It changes with
+/// every theme switch, so GPUI's icon cache never serves the previous
+/// theme's drawing.
+pub fn theme_icon_path(name: &str) -> String {
+    let generation = THEME_ICON_GENERATION.load(Ordering::Relaxed);
+    format!("{THEME_ICON_PREFIX}{generation}/{name}.svg")
+}
+
+/// A theme icon for `path`: either a [`theme_icon_path`], or a plain
+/// `icons/<name>.svg` that components outside Kitter ask for.
+fn theme_icon(path: &str) -> Option<Cow<'static, [u8]>> {
+    let file = match path.strip_prefix(THEME_ICON_PREFIX) {
+        Some(rest) => rest.split_once('/')?.1,
+        None => path.strip_prefix("icons/")?,
+    };
+    let name = file.strip_suffix(".svg")?;
+    let icon = THEME_ICONS.read().ok()?.get(name)?.clone();
+    std::fs::read(icon).ok().map(Cow::Owned)
+}
 
 const ICONS: &[(&str, &[u8])] = &[
     (
@@ -183,6 +224,9 @@ const ICONS: &[(&str, &[u8])] = &[
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
+        if let Some(icon) = theme_icon(path) {
+            return Ok(Some(icon));
+        }
         // GPUI Component's bundled Lucide assets take precedence over legacy local aliases.
         if let Ok(Some(asset)) = gpui_component_assets::Assets.load(path) {
             return Ok(Some(asset));

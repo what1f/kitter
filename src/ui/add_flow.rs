@@ -11,7 +11,7 @@ impl KitterApp {
         let fill = div()
             .absolute()
             .h_full()
-            .rounded(px(2.))
+            .rounded(px(r_xs()))
             .bg(p.secondary)
             .left(relative(motion::progress_phase(window, cx) * 1.3 - 0.3))
             .w(relative(0.3));
@@ -24,20 +24,11 @@ impl KitterApp {
             .gap(px(6.))
             .child(
                 div()
-                    .text_size(px(FS_SMALL))
+                    .text_size(px(fs_small()))
                     .text_color(p.secondary)
                     .child(label),
             )
-            .child(
-                div()
-                    .relative()
-                    .w_full()
-                    .h(px(4.))
-                    .rounded(px(2.))
-                    .bg(p.raised)
-                    .overflow_hidden()
-                    .child(fill),
-            )
+            .child(kit::track(p).child(fill))
     }
 
     pub(super) fn add_skill_modal(&self, window: &mut Window, cx: &mut Context<Self>) -> Div {
@@ -303,13 +294,13 @@ impl KitterApp {
                     div()
                         .id(ElementId::Name(format!("scan-skill-{index}").into()))
                         .debug_selector(move || format!("scan-skill-{index}"))
-                        .rounded(px(R_MD))
-                        .min_h(px(ROW_2))
+                        .rounded(px(r_md()))
+                        .min_h(px(row_2()))
                         .px(px(10.))
                         .flex()
                         .items_center()
                         .gap(px(10.))
-                        .when(selected, |row| row.bg(p.selected))
+                        .selected_fill(p, selected)
                         .cursor(if installed || pending {
                             CursorStyle::Arrow
                         } else {
@@ -325,9 +316,9 @@ impl KitterApp {
                                 .flex_1()
                                 .child(
                                     div()
-                                        .font_family(MONO)
-                                        .text_size(px(FS_BODY))
-                                        .font_weight(FontWeight::MEDIUM)
+                                        .font_family(mono())
+                                        .text_size(px(fs_body()))
+                                        .font_weight(weight_medium())
                                         .truncate()
                                         .child(name.clone()),
                                 )
@@ -335,7 +326,7 @@ impl KitterApp {
                                     column.child(
                                         div()
                                             .mt(px(2.))
-                                            .text_size(px(FS_SMALL))
+                                            .text_size(px(fs_small()))
                                             .text_color(p.muted)
                                             .truncate()
                                             .child(description),
@@ -404,8 +395,8 @@ impl KitterApp {
                     .child(candidates)
                     .child(
                         div()
-                            .font_family(MONO)
-                            .text_size(px(FS_CAPTION))
+                            .font_family(mono())
+                            .text_size(px(fs_caption()))
                             .text_color(p.muted)
                             .truncate()
                             .child(display_path(Path::new(scan.source_label()))),

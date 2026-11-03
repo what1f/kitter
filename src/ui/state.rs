@@ -55,7 +55,18 @@ pub(super) struct ShellState {
     pub notice_generation: u64,
     pub system_dark: bool,
     pub dialog_body: Option<Entity<DialogBody>>,
+    /// Set while the dialog body renders, so `palette()` hands out the
+    /// dialog's surfaces.
+    pub painting_dialog: bool,
     pub page_body: Entity<PageBody>,
+    pub data_location: Option<DataLocationPrompt>,
+}
+
+/// A chosen data folder waiting for confirmation, or being moved into.
+pub(super) struct DataLocationPrompt {
+    pub target: PathBuf,
+    pub kind: crate::data_location::DataFolder,
+    pub moving: bool,
 }
 
 pub(super) struct SkillsState {

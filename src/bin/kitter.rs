@@ -25,6 +25,7 @@ use kitter::{
     },
     project, source,
     tags::{TagId, TagState, load_tag_states, save_tag_states},
+    themes::{self, ThemeSource},
 };
 use serde::Serialize;
 
@@ -163,11 +164,63 @@ enum Command {
         #[command(subcommand)]
         action: PresetAction,
     },
-    /// Show or change where Kitter stores skills
-    Library {
-        /// Change the skill library folder
+    /// List, check and pick desktop themes
+    Theme {
+        #[arg(long, global = true)]
+        json: bool,
+        #[command(subcommand)]
+        action: Option<ThemeAction>,
+    },
+    /// Show where Kitter stores skills
+    Library,
+    /// Show or change the folder that holds all Kitter data
+    Data {
+        /// Move the data into an empty folder, or switch to a folder that already has Kitter data
         #[arg(long, value_name = "PATH")]
         set: Option<PathBuf>,
+    },
+}
+
+#[derive(Subcommand)]
+enum ThemeAction {
+    /// List themes and user themes that fail to load
+    List,
+    /// Print every token of a theme as a theme.json
+    Show { id: String },
+    /// Report ignored keys, invalid values and unknown icons in a theme
+    Check {
+        /// Theme id, or path to a theme file or theme package folder
+        theme: String,
+    },
+    /// Use a theme in the desktop app
+    Use { id: String },
+    /// Create a theme package holding every token of another theme
+    Create {
+        id: String,
+        /// Theme to start from
+        #[arg(long, default_value = themes::STANDARD)]
+        from: String,
+        /// Name shown in the theme menu
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// Copy a theme file or theme package folder into the themes folder
+    Add {
+        path: PathBuf,
+        /// Theme id; defaults to the file or folder name
+        #[arg(long)]
+        id: Option<String>,
+        /// Replace an existing theme with the same id
+        #[arg(long)]
+        force: bool,
+    },
+    /// Delete a theme file or theme package
+    Remove { id: String },
+    /// List the icons a theme package can replace
+    Icons {
+        /// Mark the icons this theme replaces
+        #[arg(long)]
+        theme: Option<String>,
     },
 }
 
@@ -574,12 +627,18 @@ fn run() -> Result<()> {
     if let Command::Agents { json, action } = cli.command {
         return inspect_agents(action, json);
     }
+    if let Command::Theme { json, action } = cli.command {
+        return manage_themes(action.unwrap_or(ThemeAction::List), json);
+    }
+    if let Command::Data { set } = cli.command {
+        return manage_data(set);
+    }
     if !AgentRegistry::global().diagnostics().is_empty() {
         eprintln!("{}", t!("cli.plugin_warning"));
     }
     let mut library = SkillLibrary::open()?;
     match cli.command {
-        Command::Agents { .. } => unreachable!(),
+        Command::Agents { .. } | Command::Theme { .. } | Command::Data { .. } => unreachable!(),
         Command::List { tag, json } => list_skills(&library, tag.as_deref(), json),
         Command::Show { skill, json } => show_skill(&library, &skill, json),
         Command::Describe { skill, text, .. } => {
@@ -652,7 +711,10 @@ fn run() -> Result<()> {
         Command::Group { action } => manage_groups(&mut library, action),
         Command::Tag { action } => manage_tags(&library, action),
         Command::Preset { action } => manage_presets(&library, action),
-        Command::Library { set } => manage_library(&mut library, set),
+        Command::Library => {
+            println!("{}", library.config.library_dir.display());
+            Ok(())
+        }
     }
 }
 
@@ -1685,16 +1747,230 @@ fn manage_tags(library: &SkillLibrary, action: TagAction) -> Result<()> {
     save_tag_states(&skill_tags, &project_tags)
 }
 
-fn manage_library(library: &mut SkillLibrary, set: Option<PathBuf>) -> Result<()> {
-    if let Some(path) = set {
-        if !path.is_absolute() {
-            bail!(t!("errors.absolute_path_required").to_string());
+#[derive(Serialize)]
+struct ThemeListOutput {
+    active: String,
+    dir: PathBuf,
+    themes: Vec<ThemeOutput>,
+    errors: Vec<ThemeErrorOutput>,
+}
+
+#[derive(Serialize)]
+struct ThemeOutput {
+    id: String,
+    name: String,
+    builtin: bool,
+    path: Option<PathBuf>,
+    active: bool,
+}
+
+#[derive(Serialize)]
+struct ThemeErrorOutput {
+    id: String,
+    path: PathBuf,
+    error: String,
+}
+
+#[derive(Serialize)]
+struct ThemeCheckOutput {
+    id: String,
+    error: Option<String>,
+    problems: Vec<String>,
+    /// Icons the theme replaces, by name.
+    icons: BTreeMap<String, PathBuf>,
+    fonts: Vec<PathBuf>,
+}
+
+#[derive(Serialize)]
+struct ThemeIconOutput {
+    name: &'static str,
+    /// The theme's replacement, when `--theme` names one that has it.
+    path: Option<PathBuf>,
+    /// The replacement keeps its own colours (`icons/color/`).
+    color: bool,
+}
+
+fn manage_themes(action: ThemeAction, json: bool) -> Result<()> {
+    let dir = themes::themes_dir();
+    let mut config = kitter::AppConfig::load()?;
+    match action {
+        ThemeAction::List => {
+            let files = themes::list_files_in(&dir);
+            let themes = themes::list_in(&dir);
+            let active = themes
+                .iter()
+                .find(|theme| theme.id == config.theme_style)
+                .map_or(themes::STANDARD, |theme| theme.id.as_str())
+                .to_string();
+            let output = ThemeListOutput {
+                themes: themes
+                    .into_iter()
+                    .map(|theme| ThemeOutput {
+                        active: theme.id == active,
+                        builtin: theme.source == ThemeSource::Builtin,
+                        path: theme.source.path().map(PathBuf::from),
+                        id: theme.id,
+                        name: theme.name,
+                    })
+                    .collect(),
+                errors: files
+                    .into_iter()
+                    .filter_map(|file| {
+                        Some(ThemeErrorOutput {
+                            error: file.theme.err()?,
+                            id: file.id,
+                            path: file.path,
+                        })
+                    })
+                    .collect(),
+                active,
+                dir,
+            };
+            if json {
+                println!("{}", serde_json::to_string_pretty(&output)?);
+                return Ok(());
+            }
+            println!("{}", t!("cli.theme_directory", path = output.dir.display()));
+            for theme in &output.themes {
+                let marker = if theme.active { "*" } else { " " };
+                println!("{marker} {:<24} {}", theme.id, theme.name);
+            }
+            for error in &output.errors {
+                println!(
+                    "{}",
+                    t!("cli.theme_error", id = error.id, error = error.error)
+                );
+            }
+            Ok(())
         }
-        std::fs::create_dir_all(&path)?;
-        library.config.library_dir = path;
-        library.save()?;
+        ThemeAction::Show { id } => {
+            let theme = themes::find_in(&dir, &id)?;
+            print!("{}", themes::to_json_text(&theme));
+            Ok(())
+        }
+        ThemeAction::Check { theme } => {
+            let path = PathBuf::from(&theme);
+            let looks_like_path = theme.ends_with(".json") || path.components().count() > 1;
+            let file = if looks_like_path && path.exists() {
+                themes::load_path(&dir, &path)
+            } else if themes::BUILTIN_THEMES.contains(&theme.as_str()) {
+                println!("{}", t!("cli.theme_no_problems"));
+                return Ok(());
+            } else {
+                match themes::load_in(&dir, &theme) {
+                    Some(file) => file,
+                    None => kitter::user_bail!("errors.theme_not_found", id = theme),
+                }
+            };
+            let (icons, fonts) = file
+                .theme
+                .as_ref()
+                .map(|theme| (theme.icons.clone(), theme.fonts.clone()))
+                .unwrap_or_default();
+            let error = file.theme.err();
+            if json {
+                let output = ThemeCheckOutput {
+                    id: file.id.clone(),
+                    error: error.clone(),
+                    problems: file.problems.clone(),
+                    icons,
+                    fonts,
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                for problem in &file.problems {
+                    println!("{problem}");
+                }
+                if error.is_none() && file.problems.is_empty() {
+                    println!("{}", t!("cli.theme_no_problems"));
+                }
+            }
+            if let Some(error) = error {
+                kitter::user_bail!("errors.theme_invalid", id = file.id, error = error);
+            }
+            Ok(())
+        }
+        ThemeAction::Use { id } => {
+            let theme = themes::find_in(&dir, &id)?;
+            config.theme_style = theme.id;
+            config.save()?;
+            println!("{}", t!("cli.theme_applied", name = theme.name));
+            Ok(())
+        }
+        ThemeAction::Create { id, from, name } => {
+            let from = themes::find_in(&dir, &from)?;
+            let path = themes::create_in(&dir, &id, name.as_deref(), &from)?;
+            println!("{}", path.display());
+            Ok(())
+        }
+        ThemeAction::Add { path, id, force } => {
+            let file = themes::add_in(&dir, &path, id.as_deref(), force)?;
+            for problem in &file.problems {
+                eprintln!("{problem}");
+            }
+            println!("{}", file.path.display());
+            Ok(())
+        }
+        ThemeAction::Remove { id } => {
+            themes::remove_in(&dir, &id)?;
+            if config.theme_style == id {
+                config.theme_style = themes::STANDARD.into();
+                config.save()?;
+            }
+            println!("{}", t!("cli.theme_removed", id = id));
+            Ok(())
+        }
+        ThemeAction::Icons { theme } => {
+            let (mono, color) = match theme {
+                Some(id) => {
+                    let theme = themes::find_in(&dir, &id)?;
+                    (theme.icons, theme.color_icons)
+                }
+                None => (BTreeMap::new(), BTreeMap::new()),
+            };
+            let icons = themes::ICON_NAMES
+                .into_iter()
+                .map(|name| ThemeIconOutput {
+                    name,
+                    path: color.get(name).or_else(|| mono.get(name)).cloned(),
+                    color: color.contains_key(name),
+                })
+                .collect::<Vec<_>>();
+            if json {
+                println!("{}", serde_json::to_string_pretty(&icons)?);
+                return Ok(());
+            }
+            for icon in icons {
+                match icon.path {
+                    Some(path) => println!("* {:<16} {}", icon.name, path.display()),
+                    None => println!("  {}", icon.name),
+                }
+            }
+            Ok(())
+        }
     }
-    println!("{}", library.config.library_dir.display());
+}
+
+fn manage_data(set: Option<PathBuf>) -> Result<()> {
+    let Some(path) = set else {
+        println!("{}", kitter::data_location::current().display());
+        return Ok(());
+    };
+    let (kind, report) = kitter::data_location::change(&path)?;
+    match kind {
+        kitter::data_location::DataFolder::Empty => {
+            println!("{}", t!("cli.data_moved", path = path.display()))
+        }
+        kitter::data_location::DataFolder::Existing => {
+            println!("{}", t!("cli.data_switched", path = path.display()))
+        }
+    }
+    if !report.stale_links.is_empty() {
+        eprintln!("{}", t!("cli.data_stale_links"));
+        for link in report.stale_links {
+            eprintln!("  {}", link.display());
+        }
+    }
     Ok(())
 }
 
@@ -2318,12 +2594,12 @@ mod tests {
     #[test]
     fn client_settings_are_not_cli_commands() {
         assert!(Cli::try_parse_from(["kitter", "config", "set-theme", "dark"]).is_err());
-        let cli = Cli::try_parse_from(["kitter", "library", "--set", "/tmp/skills"])
-            .expect("skill library location should remain configurable");
-        let Command::Library { set } = cli.command else {
-            panic!("expected library command");
+        let cli = Cli::try_parse_from(["kitter", "data", "--set", "/tmp/kitter"])
+            .expect("the data folder should remain configurable");
+        let Command::Data { set } = cli.command else {
+            panic!("expected data command");
         };
-        assert_eq!(set.unwrap(), std::path::PathBuf::from("/tmp/skills"));
+        assert_eq!(set.unwrap(), std::path::PathBuf::from("/tmp/kitter"));
     }
 
     #[test]

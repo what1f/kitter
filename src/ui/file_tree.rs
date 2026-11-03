@@ -71,7 +71,7 @@ pub(super) fn rows(
                     false,
                 )
                 .w_auto()
-                .h(px(ROW_1))
+                .h(px(row_1()))
                 .mx(px(8.))
                 .pl(px(4. + depth * 14.))
                 .gap(px(6.))
@@ -91,7 +91,7 @@ pub(super) fn rows(
                     } else {
                         "icons/folder-open.svg"
                     },
-                    ICON_MD,
+                    icon_md(),
                     p.secondary,
                 )))
                 .child(label(name))
@@ -109,7 +109,7 @@ pub(super) fn rows(
                 .pl(px(4. + depth * 14.))
                 .gap(px(6.))
                 .child(slot(14.))
-                .child(slot(18.).child(KitterApp::icon("icons/file.svg", ICON_MD, p.muted)))
+                .child(slot(18.).child(KitterApp::icon("icons/file.svg", icon_md(), p.muted)))
                 .child(label(name))
             };
             TreeRow {
@@ -134,8 +134,8 @@ fn label(name: String) -> Div {
     div()
         .min_w_0()
         .flex_1()
-        .font_family(MONO)
-        .text_size(px(FS_SMALL))
+        .font_family(mono())
+        .text_size(px(fs_small()))
         .truncate()
         .child(name)
 }

@@ -403,7 +403,7 @@ fn resolve_revision(key: &RemoteKey) -> Result<String> {
     Ok(revision)
 }
 
-fn is_oid(value: &str) -> bool {
+pub(super) fn is_oid(value: &str) -> bool {
     value.len() == 40 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
@@ -505,7 +505,7 @@ fn snapshot(data_dir: &Path, key: &RemoteKey) -> Result<Snapshot> {
 }
 
 /// Capture to files so a full stderr pipe cannot deadlock the timeout.
-fn git_output(command: &mut Command, timeout: Duration) -> Result<Vec<u8>> {
+pub(super) fn git_output(command: &mut Command, timeout: Duration) -> Result<Vec<u8>> {
     let stdout = tempfile::tempfile()?;
     let stderr = tempfile::tempfile()?;
     command
