@@ -258,12 +258,15 @@ struct TagAssignmentTarget {
 
 #[derive(Clone)]
 struct SkillDrag {
+    /// The row being dragged, shown in the preview.
     name: String,
+    /// Every skill that moves: the whole selection when the row is part of it.
+    skills: Vec<String>,
 }
 
 impl Render for SkillDrag {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        kit::drag_preview(cx, self.name.clone())
+        kit::drag_preview(cx, self.name.clone(), self.skills.len() > 1)
     }
 }
 
@@ -282,7 +285,7 @@ struct GroupDrag {
 
 impl Render for GroupDrag {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        kit::drag_preview(cx, self.name.clone())
+        kit::drag_preview(cx, self.name.clone(), false)
     }
 }
 
@@ -309,7 +312,7 @@ struct TagDropTarget {
 
 impl Render for TagDrag {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        kit::drag_preview(cx, format!("#{}", self.name))
+        kit::drag_preview(cx, format!("#{}", self.name), false)
     }
 }
 
@@ -2041,6 +2044,80 @@ mod e2e_tests {
                     .contains_key(&project)
             );
         });
+    }
+
+    #[test]
+    fn dragging_a_selected_skill_moves_the_whole_selection() {
+        let _locale_guard = LOCALE_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        use gpui::MouseButton;
+        let mut cx = TestAppContext::single();
+        init(&mut cx);
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("source");
+        for name in ["alpha", "beta", "gamma"] {
+            fs::create_dir_all(source.join(name)).unwrap();
+            fs::write(
+                source.join(name).join("SKILL.md"),
+                format!("---\nname: {name}\ndescription: Test\n---\n"),
+            )
+            .unwrap();
+        }
+        let (app, cx) = cx.add_window_view({
+            let data_dir = temp.path().join("data");
+            move |window, cx| KitterApp::new_in(data_dir, window, cx)
+        });
+        let group = app.update(cx, |app, cx| {
+            let scan = crate::source::scan_local(&source).unwrap();
+            let names = ["alpha", "beta", "gamma"].map(String::from);
+            scan.import_selected(&mut app.model.library, &names.into(), None)
+                .unwrap();
+            let group = app.model.library.create_group("Target").unwrap().id;
+            app.refresh(cx);
+            app.skills_view
+                .selection
+                .replace(&["alpha".to_string(), "beta".to_string()]);
+            group
+        });
+        let group_row: &'static str = format!("sort-group-{group}").leak();
+        let drag = |cx: &mut gpui::VisualTestContext, row: &'static str| {
+            cx.refresh().unwrap();
+            cx.run_until_parked();
+            let start = cx.debug_bounds(row).unwrap().center();
+            cx.simulate_mouse_down(start, MouseButton::Left, Modifiers::none());
+            cx.simulate_mouse_move(
+                start + point(px(5.), px(0.)),
+                MouseButton::Left,
+                Modifiers::none(),
+            );
+            cx.refresh().unwrap();
+            let end = cx.debug_bounds(group_row).unwrap().center();
+            cx.simulate_mouse_move(end, MouseButton::Left, Modifiers::none());
+            cx.refresh().unwrap();
+            cx.simulate_mouse_up(end, MouseButton::Left, Modifiers::none());
+            cx.run_until_parked();
+        };
+        let grouped = |cx: &mut gpui::VisualTestContext| {
+            cx.read_entity(&app, |app, _| {
+                let mut names = app
+                    .model
+                    .skills
+                    .iter()
+                    .filter(|skill| skill.record.group_id.as_deref() == Some(group.as_str()))
+                    .map(|skill| skill.record.name.clone())
+                    .collect::<Vec<_>>();
+                names.sort();
+                names
+            })
+        };
+
+        drag(cx, "skill-beta");
+        assert_eq!(grouped(cx), ["alpha", "beta"]);
+
+        // An unselected row moves on its own.
+        drag(cx, "skill-gamma");
+        assert_eq!(grouped(cx), ["alpha", "beta", "gamma"]);
     }
 
     #[test]

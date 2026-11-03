@@ -218,21 +218,34 @@ impl KitterApp {
         cx.notify();
     }
 
-    pub(super) fn assign_skill_group(
+    /// Built-in skills in the list stay where they are.
+    pub(super) fn assign_skills_group(
         &mut self,
-        skill: String,
+        skills: Vec<String>,
         group_id: Option<String>,
         cx: &mut Context<Self>,
     ) {
-        match self
+        let built_in = self
             .model
-            .library
-            .assign_group_by_storage(&skill, group_id.as_deref())
-        {
-            Ok(()) => {
-                self.refresh(cx);
-                self.show_notice(t!("skills.group_updated").to_string(), cx);
+            .skills
+            .iter()
+            .filter(|skill| skill.record.origin.is_builtin())
+            .map(|skill| skill_storage_name(skill).to_string())
+            .collect::<HashSet<_>>();
+        let mut result = Ok(());
+        for skill in skills.iter().filter(|skill| !built_in.contains(*skill)) {
+            result = self
+                .model
+                .library
+                .assign_group_by_storage(skill, group_id.as_deref());
+            if result.is_err() {
+                break;
             }
+        }
+        // Show the skills that did move even when a later one failed.
+        self.refresh(cx);
+        match result {
+            Ok(()) => self.show_notice(t!("skills.group_updated").to_string(), cx),
             Err(error) => self.show_notice(self.error_message(error), cx),
         }
     }

@@ -1075,20 +1075,40 @@ pub(super) fn pane_title(title: impl Into<SharedString>) -> Div {
 }
 
 /// Floating label that follows the cursor while dragging.
-pub(super) fn drag_preview(cx: &App, text: impl Into<SharedString>) -> Div {
+/// `stacked` draws a second card behind the label when several items move.
+pub(super) fn drag_preview(cx: &App, text: impl Into<SharedString>, stacked: bool) -> Div {
     let p = Palette::for_mode(cx.theme().mode);
-    div()
+    let card = || {
+        div()
+            .rounded(px(r_md()))
+            .border(px(border_w()))
+            .border_color(p.border_strong)
+            .bg(p.elevated)
+            .surface(p, Material::Popover)
+    };
+    let label = card()
         .px(px(10.))
         .py(px(6.))
-        .rounded(px(r_md()))
-        .border(px(border_w()))
-        .border_color(p.border_strong)
-        .bg(p.elevated)
-        .surface(p, Material::Popover)
         .text_color(p.text)
         .font_family(mono())
         .text_size(px(fs_small()))
-        .child(text.into())
+        .child(text.into());
+    if !stacked {
+        return label;
+    }
+    div()
+        .relative()
+        .pr(px(4.))
+        .pb(px(4.))
+        .child(
+            card()
+                .absolute()
+                .top(px(4.))
+                .left(px(4.))
+                .right_0()
+                .bottom_0(),
+        )
+        .child(label)
 }
 
 /// Settings card row: title and description on the left, control on the right.

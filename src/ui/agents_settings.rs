@@ -76,7 +76,7 @@ struct AgentDrag {
 }
 impl Render for AgentDrag {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        kit::drag_preview(cx, self.name.clone())
+        kit::drag_preview(cx, self.name.clone(), false)
     }
 }
 

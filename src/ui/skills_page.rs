@@ -256,6 +256,11 @@ impl KitterApp {
             row.on_drag(
                 SkillDrag {
                     name: storage_name.clone(),
+                    skills: if multi_selection {
+                        selected_keys.to_vec()
+                    } else {
+                        vec![storage_name.clone()]
+                    },
                 },
                 |drag, _, _, cx| cx.new(|_| drag.clone()),
             )
@@ -972,7 +977,7 @@ impl KitterApp {
         ))
         .drag_over::<SkillDrag>(move |style, _, _, _| style.drop_fill(p))
         .on_drop(cx.listener(move |this, drag: &SkillDrag, _, cx| {
-            this.assign_skill_group(drag.name.clone(), Some(drop_group_id.clone()), cx);
+            this.assign_skills_group(drag.skills.clone(), Some(drop_group_id.clone()), cx);
         }))
         .on_click(cx.listener(move |this, _, _, cx| {
             if !this.skills_view.collapsed_groups.remove(&toggle_key) {
