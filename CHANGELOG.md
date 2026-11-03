@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.4 — 2026-11-04
+
+- Added themes. Pick a style in Settings, including the new Solid Glass style, or build your own theme package with colors, surfaces, fonts, sizes, and icons.
+- Added `kitter theme` for listing, creating, checking, and switching themes.
+- Added a data location setting and `kitter data`. Move skills, presets, and settings to another folder, or switch to Kitter data copied from elsewhere.
+- Skills from skills.sh and GitHub can now be added and updated with Git when Node.js is not installed.
+- The Kitter skill now installs the Windows CLI to `%USERPROFILE%\.local\bin`.
+- Removed `kitter library --set`. Use `kitter data --set` instead.
+
+Update the desktop app and the CLI together. After you move your data, older versions cannot find it.
+
+[Full changelog](https://github.com/what1f/kitter/compare/v0.2.3...v0.2.4)
+
 ## v0.2.3 — 2026-10-27
 
 - Added copy mode for local skills, with update detection from the original folder.
