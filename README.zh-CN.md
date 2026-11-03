@@ -3,12 +3,12 @@
 </p>
 
 <p align="center">
-  <a href="./README.md">English</a>
+  <a href="https://kitter.shens.dev">官网</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="./README.md">English</a>
 </p>
 
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-3f8997" alt="Apache-2.0 许可证"></a>
-  <a href="https://github.com/what1f/kitter/releases/latest"><img src="https://img.shields.io/badge/release-v0.2.1-blue" alt="版本 v0.2.1"></a>
+  <a href="https://github.com/what1f/kitter/releases/latest"><img src="https://img.shields.io/github/v/release/what1f/kitter?label=release&color=blue" alt="最新版本"></a>
   <img src="https://img.shields.io/badge/desktop-macOS%20%7C%20Windows%20%7C%20Linux-15191a" alt="macOS、Windows 和 Linux 桌面应用">
   <img src="https://img.shields.io/badge/built_with-Rust-b8aaa0" alt="使用 Rust 构建">
 </p>
