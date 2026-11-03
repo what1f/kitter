@@ -2,12 +2,13 @@
 import '../styles/global.css';
 import { dicts, pathFor, type Lang } from '../i18n';
 import icon from '../assets/brand/app-icon.png';
+import roundedIcon from '../assets/brand/favicon.png';
 import { getImage } from 'astro:assets';
 
 interface Props { lang: Lang }
 const { lang } = Astro.props;
 const t = dicts[lang];
-const favicon = await getImage({ src: icon, width: 64, height: 64, format: 'png' });
+const favicon = await getImage({ src: roundedIcon, width: 64, height: 64, format: 'png' });
 const touch = await getImage({ src: icon, width: 180, height: 180, format: 'png' });
 const other: Lang = lang === 'zh' ? 'en' : 'zh';
 const canonical = new URL(pathFor(lang), Astro.site);
