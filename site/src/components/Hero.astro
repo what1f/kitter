@@ -65,7 +65,7 @@ const t = dicts[lang];
 
   .stage :global(.art) {
     width: 100%;
-    filter: drop-shadow(0 40px 40px rgb(30 50 55 / 12%));
+    filter: drop-shadow(0 40px 40px var(--art-shadow));
     /* The render is cropped at the drawer; let it dissolve instead. */
     mask-image: linear-gradient(to right, #000 82%, transparent), linear-gradient(to bottom, #000 84%, transparent);
     mask-composite: intersect;

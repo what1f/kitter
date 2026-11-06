@@ -1,4 +1,5 @@
 ---
+import Logo from './Logo.astro';
 import { Picture } from 'astro:assets';
 import art from '../assets/art/effective.png';
 import { dicts, loads, project, TOKEN_WARNING, type Lang } from '../i18n';
@@ -25,7 +26,7 @@ const fmt = (n: number) => n.toLocaleString('en-US');
       <ul>
         {agents.map((a) => (
           <li>
-            <img src={`/logos/provider-${a.id}.svg`} alt="" width="20" height="20" />
+            <Logo id={a.id} size={20} />
             <span class="name">{a.name}</span>
             <span class="count">{a.skills.length} {t.effective.skills}</span>
             <span class="bar"><i style={`width:${(a.total / max) * 100}%`}></i></span>
@@ -52,7 +53,7 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 
   .otter :global(.art) {
     width: 100%;
-    filter: drop-shadow(0 30px 30px rgb(30 50 55 / 12%));
+    filter: drop-shadow(0 30px 30px var(--art-shadow));
   }
 
   /* 20px corner, 8px inset, 12px rows: concentric. */
@@ -101,12 +102,12 @@ const fmt = (n: number) => n.toLocaleString('en-US');
   }
 
   .tok { text-align: right; }
-  .tok.heavy { color: #b57a00; }
+  .tok.heavy { color: var(--amber); }
 
   .bar {
     height: 4px;
     border-radius: 2px;
-    background: rgb(21 24 26 / 6%);
+    background: var(--fill);
   }
 
   .bar i {
@@ -116,7 +117,7 @@ const fmt = (n: number) => n.toLocaleString('en-US');
     background: var(--teal);
   }
 
-  li:has(.heavy) .bar i { background: #e0a000; }
+  li:has(.heavy) .bar i { background: var(--amber-bar); }
 
   @media (max-width: 900px) {
     .grid { grid-template-columns: 1fr; }

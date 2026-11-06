@@ -36,7 +36,48 @@
   --oak: #c9a77c;
   --ring: 0 0 0 var(--hairline) var(--line-strong);
   --shadow: var(--ring), 0 24px 48px -28px rgb(20 30 32 / 24%);
+  --fill: rgb(21 24 26 / 5%);
+  --wire: rgb(21 24 26 / 17%);
+  --on-ink: #fff;
+  --ink-hover: #262a2d;
+  --amber: #b57a00;
+  --amber-bar: #e0a000;
+  --art-shadow: rgb(30 50 55 / 12%);
+  --haze-1: rgb(94 154 163 / 14%);
+  --haze-2: rgb(255 255 255 / 75%);
+  --haze-3: rgb(94 154 163 / 7%);
+  --haze-4: rgb(222 196 160 / 22%);
   color-scheme: light;
+}
+
+/* Night: a deep slate canvas, same teal and sand haze, dimmer. Set by the head script in Base.astro. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: #111416;
+  --surface: #1a1e20;
+  --well: #22272a;
+  --glass: rgb(17 20 22 / 76%);
+  --line: rgb(232 238 238 / 8%);
+  --line-strong: rgb(232 238 238 / 14%);
+  --ink: #e8eded;
+  --ink-2: rgb(232 237 237 / 62%);
+  --ink-3: rgb(232 237 237 / 42%);
+  --ink-4: rgb(232 237 237 / 16%);
+  --teal: #6aa8b1;
+  --teal-deep: #82bcc5;
+  --teal-soft: rgb(106 168 177 / 24%);
+  --shadow: var(--ring), 0 24px 48px -28px rgb(0 0 0 / 60%);
+  --fill: rgb(232 237 237 / 6%);
+  --wire: rgb(232 237 237 / 16%);
+  --on-ink: #111416;
+  --ink-hover: #fff;
+  --amber: #e3a832;
+  --amber-bar: #e0a000;
+  --art-shadow: rgb(0 0 0 / 40%);
+  --haze-1: rgb(94 154 163 / 13%);
+  --haze-2: rgb(94 154 163 / 4%);
+  --haze-3: rgb(94 154 163 / 6%);
+  --haze-4: rgb(222 196 160 / 7%);
 }
 
 *,
@@ -64,15 +105,16 @@ body {
 /* Soft haze, like the light in the renders: teal up top, warm sand near the end. */
 body {
   background:
-    radial-gradient(70vw 70vh at 0% 0%, rgb(94 154 163 / 14%), transparent 70%),
-    radial-gradient(50vw 60vh at 100% 6%, rgb(255 255 255 / 75%), transparent 70%),
-    radial-gradient(60vw 50vh at 100% 52%, rgb(94 154 163 / 7%), transparent 70%),
-    radial-gradient(70vw 60vh at 100% 100%, rgb(222 196 160 / 22%), transparent 70%),
+    radial-gradient(70vw 70vh at 0% 0%, var(--haze-1), transparent 70%),
+    radial-gradient(50vw 60vh at 100% 6%, var(--haze-2), transparent 70%),
+    radial-gradient(60vw 50vh at 100% 52%, var(--haze-3), transparent 70%),
+    radial-gradient(70vw 60vh at 100% 100%, var(--haze-4), transparent 70%),
     var(--canvas);
 }
 
 img, svg { display: block; max-width: 100%; }
 picture { display: contents; }
+picture > source { display: none; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; }
 ::selection { background: var(--teal-soft); }
@@ -149,11 +191,10 @@ button { font: inherit; color: inherit; }
 
 .btn-primary {
   background: var(--ink);
-  color: #fff;
-
+  color: var(--on-ink);
 }
 
-.btn-primary:hover { background: #262a2d; }
+.btn-primary:hover { background: var(--ink-hover); }
 
 .btn-ghost {
   background: var(--surface);

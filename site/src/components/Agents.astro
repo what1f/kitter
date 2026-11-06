@@ -1,4 +1,5 @@
 ---
+import Logo from './Logo.astro';
 import { Picture } from 'astro:assets';
 import art from '../assets/art/agents.png';
 import Icon from './Icon.astro';
@@ -58,7 +59,7 @@ const pos = (p: { x: number; y: number }) => `left:${(p.x / W) * 100}%;top:${(p.
       </div>
       {arc.map((p) => (
         <div class="tile" style={pos(p)}>
-          <img src={`/logos/provider-${p.logo}.svg`} alt="" width="20" height="20" />
+          <Logo id={p.logo} size={20} />
           <span>{p.name}</span>
         </div>
       ))}
@@ -67,7 +68,7 @@ const pos = (p: { x: number; y: number }) => `left:${(p.x / W) * 100}%;top:${(p.
     <div class="more" data-reveal style="--delay: 160ms">
       {more.map((m) => (
         <div class="chip">
-          <img src={`/logos/provider-${m.logo}.svg`} alt="" width="16" height="16" />
+          <Logo id={m.logo} size={16} />
           <span>{m.name}</span>
         </div>
       ))}
@@ -84,7 +85,7 @@ const pos = (p: { x: number; y: number }) => `left:${(p.x / W) * 100}%;top:${(p.
     white-space: nowrap;
     color: var(--teal-deep);
     text-decoration: underline;
-    text-decoration-color: rgb(63 137 151 / 35%);
+    text-decoration-color: color-mix(in srgb, var(--teal-deep) 35%, transparent);
     text-underline-offset: 4px;
     transition: text-decoration-color var(--d-fast) var(--ease);
   }
@@ -107,7 +108,7 @@ const pos = (p: { x: number; y: number }) => `left:${(p.x / W) * 100}%;top:${(p.
 
   .wire {
     fill: none;
-    stroke: rgb(21 24 26 / 16%);
+    stroke: var(--wire);
     stroke-width: 1;
     vector-effect: non-scaling-stroke;
   }
@@ -122,7 +123,7 @@ const pos = (p: { x: number; y: number }) => `left:${(p.x / W) * 100}%;top:${(p.
 
   .case :global(.art) {
     width: 100%;
-    filter: drop-shadow(0 30px 30px rgb(30 50 55 / 14%));
+    filter: drop-shadow(0 30px 30px var(--art-shadow));
   }
 
   .tile {
@@ -140,7 +141,7 @@ const pos = (p: { x: number; y: number }) => `left:${(p.x / W) * 100}%;top:${(p.
     translate: -50% -50%;
   }
 
-  .tile img { width: 20px; height: 20px; }
+  .tile :global(img) { width: 20px; height: 20px; }
 
   .more {
     display: flex;
@@ -164,7 +165,7 @@ const pos = (p: { x: number; y: number }) => `left:${(p.x / W) * 100}%;top:${(p.
     font-weight: 500;
   }
 
-  .chip img { width: 16px; height: 16px; }
+  .chip :global(img) { width: 16px; height: 16px; }
 
   .add {
     color: var(--ink-3);

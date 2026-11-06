@@ -32,6 +32,25 @@ const canonical = new URL(pathFor(lang), Astro.site);
     <meta property="og:url" content={canonical} />
     <meta name="twitter:card" content="summary_large_image" />
     <script is:inline>document.documentElement.classList.add('js');</script>
+    <script is:inline>
+      // Follow the system unless the visitor picked a theme. Dark-only <source>s follow the same choice.
+      (() => {
+        const mq = matchMedia('(prefers-color-scheme: dark)');
+        const apply = () => {
+          let saved = null;
+          try { saved = localStorage.getItem('theme'); } catch {}
+          const dark = saved ? saved === 'dark' : mq.matches;
+          const root = document.documentElement;
+          root.dataset.theme = dark ? 'dark' : 'light';
+          document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#111416' : '#f2f4f4');
+          document.querySelectorAll('source[data-dark]').forEach((s) => s.setAttribute('media', dark ? 'all' : 'not all'));
+        };
+        window.__applyTheme = apply;
+        apply();
+        mq.addEventListener('change', apply);
+        document.addEventListener('DOMContentLoaded', apply);
+      })();
+    </script>
     {lang === 'en' && (
       <script is:inline>
         // First visit with a Chinese browser goes to /zh/; a manual language choice always wins.
@@ -65,6 +84,16 @@ const canonical = new URL(pathFor(lang), Astro.site);
       const onScroll = () => nav?.toggleAttribute('data-scrolled', scrollY > 8);
       addEventListener('scroll', onScroll, { passive: true });
       onScroll();
+
+      document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
+        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        const system = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        try {
+          if (next === system) localStorage.removeItem('theme');
+          else localStorage.setItem('theme', next);
+        } catch {}
+        (window as any).__applyTheme();
+      });
 
       document.querySelectorAll<HTMLAnchorElement>('a[data-lang]').forEach((a) =>
         a.addEventListener('click', () => {

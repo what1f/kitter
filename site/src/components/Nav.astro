@@ -18,6 +18,10 @@ const other: Lang = lang === 'zh' ? 'en' : 'zh';
     </a>
     <nav class="links">
       <a class="link" href={pathFor(other)} data-lang={other} hreflang={dicts[other].htmlLang} lang={dicts[other].htmlLang} title={t.switchTo}>{t.switchShort}</a>
+      <button class="link theme" type="button" data-theme-toggle aria-label={t.theme} title={t.theme}>
+        <span class="sun"><Icon name="sun" size={17} /></span>
+        <span class="moon"><Icon name="moon" size={17} /></span>
+      </button>
       <a class="link" href={repo} rel="noopener">
         <Icon name="github" size={17} />
         <span class="hide-sm">{t.github}</span>
@@ -86,8 +90,23 @@ const other: Lang = lang === 'zh' ? 'en' : 'zh';
 
   .link:hover {
     color: var(--ink);
-    background: rgb(21 24 26 / 5%);
+    background: var(--fill);
   }
+
+  .theme {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .theme span { display: inline-flex; }
+
+  /* Show where a click takes you. */
+  :global([data-theme='dark']) .theme .moon,
+  :global(:root:not([data-theme='dark'])) .theme .sun { display: none; }
 
   .links .btn { margin-left: 6px; }
 

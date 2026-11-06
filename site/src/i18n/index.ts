@@ -6,7 +6,7 @@ const zh = {
     title: 'Kitter：集中管理 Agent Skills',
     description: '开源的桌面应用与命令行。集中管理 Agent Skills，按项目分配，查看每个 Agent 的加载情况与 token 占用。',
   },
-  nav: { github: 'GitHub', download: '下载', switchTo: 'English', switchShort: 'EN', home: 'Kitter 首页' },
+  nav: { github: 'GitHub', download: '下载', switchTo: 'English', switchShort: 'EN', home: 'Kitter 首页', theme: '切换深浅色' },
   hero: {
     title: ['Agent Skills，', '集中管理。'],
     lede: '按项目分配 Skill，看清每个 Agent 实际加载了什么、占用多少 token。',
@@ -66,7 +66,7 @@ const en: Dict = {
     title: 'Kitter: manage agent skills in one place',
     description: 'An open-source desktop app and CLI. Manage agent skills in one place, assign them per project, and see what each agent loads and what it costs in tokens.',
   },
-  nav: { github: 'GitHub', download: 'Download', switchTo: '中文', switchShort: '中', home: 'Kitter home' },
+  nav: { github: 'GitHub', download: 'Download', switchTo: '中文', switchShort: '中', home: 'Kitter home', theme: 'Toggle dark mode' },
   hero: {
     title: ['Agent skills,', 'in one place.'],
     lede: 'Assign skills per project. See what each agent loads and how many tokens it takes.',

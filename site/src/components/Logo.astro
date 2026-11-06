@@ -1,0 +1,10 @@
+---
+// Provider logo. Logos drawn in black ship a light variant for dark mode.
+interface Props { id: string; size: number }
+const { id, size } = Astro.props;
+const dark = ['cursor', 'droid', 'grok', 'hermes', 'opencode', 'pi'].includes(id);
+---
+<picture>
+  {dark && <source srcset={`/logos/provider-${id}.dark.svg`} media="(prefers-color-scheme: dark)" data-dark />}
+  <img src={`/logos/provider-${id}.svg`} alt="" width={size} height={size} />
+</picture>

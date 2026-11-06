@@ -1,5 +1,5 @@
 ---
-import { Image } from 'astro:assets';
+import { Image, getImage } from 'astro:assets';
 import { dicts, type Lang } from '../i18n';
 import projectZh from '../assets/shots/project-effective-skills.zh-CN.png';
 import projectEn from '../assets/shots/project-effective-skills.en.png';
@@ -7,16 +7,26 @@ import libraryZh from '../assets/shots/skill-library.zh-CN.png';
 import libraryEn from '../assets/shots/skill-library.en.png';
 import installZh from '../assets/shots/install-skill.zh-CN.png';
 import installEn from '../assets/shots/install-skill.en.png';
+import projectZhDark from '../assets/shots/project-effective-skills.zh-CN.dark.png';
+import projectEnDark from '../assets/shots/project-effective-skills.en.dark.png';
+import libraryZhDark from '../assets/shots/skill-library.zh-CN.dark.png';
+import libraryEnDark from '../assets/shots/skill-library.en.dark.png';
+import installZhDark from '../assets/shots/install-skill.zh-CN.dark.png';
+import installEnDark from '../assets/shots/install-skill.en.dark.png';
 
 interface Props { lang: Lang }
 const { lang } = Astro.props;
 const t = dicts[lang].shots;
 const zh = lang === 'zh';
-const shots = [
-  { id: 'project', src: zh ? projectZh : projectEn },
-  { id: 'library', src: zh ? libraryZh : libraryEn },
-  { id: 'install', src: zh ? installZh : installEn },
-] as const;
+const widths = [800, 1252, 1800, 2504];
+const sizes = '(max-width: 1240px) 100vw, 1160px';
+const shots = await Promise.all(
+  ([
+    { id: 'project', src: zh ? projectZh : projectEn, dark: zh ? projectZhDark : projectEnDark },
+    { id: 'library', src: zh ? libraryZh : libraryEn, dark: zh ? libraryZhDark : libraryEnDark },
+    { id: 'install', src: zh ? installZh : installEn, dark: zh ? installZhDark : installEnDark },
+  ] as const).map(async (s) => ({ ...s, dark: (await getImage({ src: s.dark, widths, format: 'webp' })).srcSet.attribute })),
+);
 ---
 <section class="shots" data-shots>
   <div class="wrap">
@@ -27,15 +37,18 @@ const shots = [
     </div>
     <div class="frame" data-reveal style="--delay: 80ms">
       {shots.map((s, i) => (
-        <Image
-          class:list={['shot', { on: i === 0 }]}
-          data-shot={s.id}
-          src={s.src}
-          alt={t[s.id]}
-          widths={[800, 1252, 1800, 2504]}
-          sizes="(max-width: 1240px) 100vw, 1160px"
-          loading="lazy"
-        />
+        <picture>
+          <source srcset={s.dark} sizes={sizes} media="(prefers-color-scheme: dark)" data-dark type="image/webp" />
+          <Image
+            class:list={['shot', { on: i === 0 }]}
+            data-shot={s.id}
+            src={s.src}
+            alt={t[s.id]}
+            widths={widths}
+            sizes={sizes}
+            loading="lazy"
+          />
+        </picture>
       ))}
     </div>
   </div>
@@ -66,7 +79,7 @@ const shots = [
     margin: 0 auto;
     padding: 4px;
     border-radius: 999px;
-    background: rgb(21 24 26 / 5%);
+    background: var(--fill);
   }
 
   .seg button {
