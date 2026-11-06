@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "site/**"
+      - "CHANGELOG.md"
+      - "CHANGELOG.zh-CN.md"
       - ".github/workflows/site.yml"
   workflow_dispatch:
 

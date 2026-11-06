@@ -1,11 +1,11 @@
 ---
 import { Image } from 'astro:assets';
 import icon from '../assets/brand/app-icon.png';
-import { dicts, pathFor, type Lang } from '../i18n';
-import { repo, download } from '../site';
+import { dicts, pathFor, type Lang, type Page } from '../i18n';
+import { repo } from '../site';
 
-interface Props { lang: Lang }
-const { lang } = Astro.props;
+interface Props { lang: Lang; page?: Page }
+const { lang, page = '' } = Astro.props;
 const t = dicts[lang];
 const other: Lang = lang === 'zh' ? 'en' : 'zh';
 ---
@@ -17,8 +17,8 @@ const other: Lang = lang === 'zh' ? 'en' : 'zh';
     </a>
     <nav class="links">
       <a href={repo} rel="noopener">GitHub</a>
-      <a href={download}>{t.footer.releases}</a>
-      <a href={pathFor(other)} data-lang={other} hreflang={dicts[other].htmlLang}>{t.nav.switchTo}</a>
+      <a href={pathFor(lang, 'changelog')}>{t.nav.changelog}</a>
+      <a href={pathFor(other, page)} data-lang={other} hreflang={dicts[other].htmlLang}>{t.nav.switchTo}</a>
     </nav>
   </div>
 </footer>

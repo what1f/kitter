@@ -1,0 +1,139 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from './Nav.astro';
+import Footer from './Footer.astro';
+import { dicts, type Lang } from '../i18n';
+import { releases } from '../changelog';
+import { repo } from '../site';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = dicts[lang].changelog;
+const list = releases(lang);
+---
+<Base lang={lang} page="changelog" title={t.meta} description={t.description}>
+  <Nav lang={lang} page="changelog" />
+  <main class="wrap page">
+    <h1 class="title">{t.title}</h1>
+    <ol class="releases">
+      {list.map((r) => (
+        <li class="release" id={r.version}>
+          <header class="meta">
+            <h2 class="version">
+              <a href={`${repo}/releases/tag/${r.version}`} rel="noopener">{r.version}</a>
+            </h2>
+            <time datetime={r.date}>{r.date}</time>
+          </header>
+          <div class="body">
+            {r.blocks.map((b) =>
+              b.kind === 'list' ? (
+                <ul>{b.items.map((item) => <li set:html={item} />)}</ul>
+              ) : (
+                <p set:html={b.html} />
+              ),
+            )}
+            {r.compare && <a class="compare" href={r.compare.href} rel="noopener">{r.compare.label}</a>}
+          </div>
+        </li>
+      ))}
+    </ol>
+  </main>
+  <Footer lang={lang} page="changelog" />
+</Base>
+
+<style>
+  .page {
+    max-width: calc(880px + var(--gutter) * 2);
+    padding-top: calc(var(--nav-h) + clamp(48px, 8vw, 96px));
+    padding-bottom: clamp(72px, 10vw, 128px);
+  }
+
+  .releases {
+    margin: clamp(40px, 6vw, 64px) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .release {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 32px;
+    padding: 36px 0;
+    border-top: var(--hairline) solid var(--line-strong);
+    scroll-margin-top: var(--nav-h);
+  }
+
+  .meta {
+    position: sticky;
+    top: calc(var(--nav-h) + 24px);
+    align-self: start;
+  }
+
+  .version {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+
+  .version a:hover { color: var(--teal-deep); }
+
+  time {
+    display: block;
+    margin-top: 4px;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .body { color: var(--ink-2); }
+
+  .body ul {
+    margin: 0;
+    padding-left: 1.1em;
+  }
+
+  .body li + li { margin-top: 8px; }
+
+  .body li::marker { color: var(--ink-4); }
+
+  .body p { margin: 16px 0 0; color: var(--ink); }
+
+  .body :global(code) {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--fill);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    overflow-wrap: anywhere;
+  }
+
+  .body :global(a) { color: var(--teal-deep); }
+
+  .compare {
+    display: inline-block;
+    margin-top: 16px;
+    color: var(--ink-3) !important;
+    font-size: var(--fs-small);
+  }
+
+  .compare:hover { color: var(--ink) !important; }
+
+  @media (max-width: 640px) {
+    .release {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .meta {
+      position: static;
+      display: flex;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    time { margin: 0; }
+  }
+</style>

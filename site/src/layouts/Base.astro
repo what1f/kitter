@@ -1,34 +1,36 @@
 ---
 import '../styles/global.css';
-import { dicts, pathFor, type Lang } from '../i18n';
+import { dicts, pathFor, type Lang, type Page } from '../i18n';
 import icon from '../assets/brand/app-icon.png';
 import roundedIcon from '../assets/brand/favicon.png';
 import { getImage } from 'astro:assets';
 
-interface Props { lang: Lang }
-const { lang } = Astro.props;
+interface Props { lang: Lang; page?: Page; title?: string; description?: string }
+const { lang, page = '' } = Astro.props;
 const t = dicts[lang];
+const title = Astro.props.title ?? t.meta.title;
+const description = Astro.props.description ?? t.meta.description;
 const favicon = await getImage({ src: roundedIcon, width: 64, height: 64, format: 'png' });
 const touch = await getImage({ src: icon, width: 180, height: 180, format: 'png' });
 const other: Lang = lang === 'zh' ? 'en' : 'zh';
-const canonical = new URL(pathFor(lang), Astro.site);
+const canonical = new URL(pathFor(lang, page), Astro.site);
 ---
 <!doctype html>
 <html lang={t.htmlLang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{t.meta.title}</title>
-    <meta name="description" content={t.meta.description} />
+    <title>{title}</title>
+    <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
-    <link rel="alternate" hreflang={dicts[other].htmlLang} href={new URL(pathFor(other), Astro.site)} />
-    <link rel="alternate" hreflang="x-default" href={new URL(pathFor('en'), Astro.site)} />
+    <link rel="alternate" hreflang={dicts[other].htmlLang} href={new URL(pathFor(other, page), Astro.site)} />
+    <link rel="alternate" hreflang="x-default" href={new URL(pathFor('en', page), Astro.site)} />
     <link rel="icon" type="image/png" href={favicon.src} />
     <link rel="apple-touch-icon" href={touch.src} />
     <meta name="theme-color" content="#f2f4f4" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content={t.meta.title} />
-    <meta property="og:description" content={t.meta.description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta name="twitter:card" content="summary_large_image" />
     <script is:inline>document.documentElement.classList.add('js');</script>
@@ -59,7 +61,7 @@ const canonical = new URL(pathFor(lang), Astro.site);
           const prefs = navigator.languages?.length ? navigator.languages : [navigator.language];
           const first = prefs.find((l) => /^(zh|en)\b/i.test(l)) || '';
           if (saved === 'zh' || (!saved && /^zh\b/i.test(first))) {
-            location.replace('/zh/' + location.search + location.hash);
+            location.replace('/zh' + location.pathname + location.search + location.hash);
           }
         } catch {}
       </script>
