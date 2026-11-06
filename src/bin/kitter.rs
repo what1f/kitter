@@ -179,6 +179,14 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         set: Option<PathBuf>,
     },
+    /// Update this CLI to the latest Kitter release
+    SelfUpdate {
+        /// Only check for a newer version
+        #[arg(long)]
+        check: bool,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -633,12 +641,18 @@ fn run() -> Result<()> {
     if let Command::Data { set } = cli.command {
         return manage_data(set);
     }
+    if let Command::SelfUpdate { check, json } = cli.command {
+        return update_self(check, json);
+    }
     if !AgentRegistry::global().diagnostics().is_empty() {
         eprintln!("{}", t!("cli.plugin_warning"));
     }
     let mut library = SkillLibrary::open()?;
     match cli.command {
-        Command::Agents { .. } | Command::Theme { .. } | Command::Data { .. } => unreachable!(),
+        Command::Agents { .. }
+        | Command::Theme { .. }
+        | Command::Data { .. }
+        | Command::SelfUpdate { .. } => unreachable!(),
         Command::List { tag, json } => list_skills(&library, tag.as_deref(), json),
         Command::Show { skill, json } => show_skill(&library, &skill, json),
         Command::Describe { skill, text, .. } => {
@@ -1970,6 +1984,80 @@ fn manage_data(set: Option<PathBuf>) -> Result<()> {
         for link in report.stale_links {
             eprintln!("  {}", link.display());
         }
+    }
+    Ok(())
+}
+
+fn update_self(check: bool, json: bool) -> Result<()> {
+    use kitter::app_update::{self, CURRENT_VERSION, Progress};
+
+    #[derive(Serialize)]
+    struct Output<'a> {
+        current: &'a str,
+        latest: &'a str,
+        update_available: bool,
+        updated: bool,
+    }
+
+    let release = app_update::latest_release()?;
+    let available = app_update::has_update(&release);
+    let install = available && !check;
+    if install {
+        let mut last = None;
+        let path = app_update::update_cli(&release, |progress| {
+            if json {
+                return;
+            }
+            let line = match progress {
+                Progress::Downloading { done, total } => t!(
+                    "cli.update_downloading",
+                    percent = (done * 100).checked_div(total).unwrap_or(0).min(100)
+                )
+                .to_string(),
+                Progress::Installing => t!("cli.update_installing").to_string(),
+            };
+            if last.as_ref() != Some(&line) {
+                if std::io::stderr().is_terminal() {
+                    eprint!("\r\x1b[2K{line}");
+                } else {
+                    eprintln!("{line}");
+                }
+                last = Some(line);
+            }
+        })?;
+        if !json && std::io::stderr().is_terminal() {
+            eprintln!();
+        }
+        if !json {
+            println!(
+                "{}",
+                t!(
+                    "cli.update_done",
+                    version = release.version,
+                    path = path.display()
+                )
+            );
+        }
+    }
+    if json {
+        let output = Output {
+            current: CURRENT_VERSION,
+            latest: &release.version,
+            update_available: available,
+            updated: install,
+        };
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else if !available {
+        println!("{}", t!("cli.update_latest", version = CURRENT_VERSION));
+    } else if check {
+        println!(
+            "{}",
+            t!(
+                "cli.update_available",
+                version = release.version,
+                current = CURRENT_VERSION
+            )
+        );
     }
     Ok(())
 }

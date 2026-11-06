@@ -762,6 +762,14 @@ impl KitterApp {
                             self.shell.page,
                         )
                         .w_full()
+                        .when(self.app_update_available(), |row| {
+                            row.child(div().flex_1()).child(
+                                kit::count(p, "●")
+                                    .flex_none()
+                                    .text_size(px(8.))
+                                    .text_color(p.accent),
+                            )
+                        })
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.shell.page = Page::Settings;
                             cx.notify();

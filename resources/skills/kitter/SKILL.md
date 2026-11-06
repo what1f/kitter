@@ -23,6 +23,8 @@ Before doing any work, resolve the executable in this order:
 
 The examples below use `kitter` for readability; when executing them, always use the absolute path you resolved.
 
+To update the CLI itself to the latest release, run `kitter self-update`; `kitter self-update --check` only reports whether a newer version exists. Ask before installing. Updating the desktop app from its Settings also updates a CLI found in the per-user install location.
+
 If the executable does not exist, read [references/install-cli.md](references/install-cli.md). Explain that the skill needs the standalone CLI, then offer the supported installation path for the current platform. Download or install it only after the user agrees. Do not search download folders, install unrelated package managers, or modify shell profiles.
 
 ```text

@@ -42,6 +42,7 @@ mod add_actions;
 mod add_flow;
 mod adoption_list;
 mod agents_settings;
+mod app_update;
 mod badges;
 mod components;
 mod effective_view;
@@ -471,12 +472,14 @@ pub struct KitterApp {
     tags_flow: TagsFlowState,
     groups_flow: GroupsFlowState,
     presets_view: PresetsState,
+    app_update: app_update::AppUpdate,
 }
 
 impl KitterApp {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let mut app = Self::new_in(crate::config::app_data_dir(), window, cx);
         app.start_background_update_check(cx);
+        app.start_app_update_check(cx);
         app
     }
 
@@ -783,6 +786,7 @@ impl KitterApp {
         };
         let agents_settings = agents_settings::AgentsSettings::new(window, cx);
         Self {
+            app_update: Default::default(),
             agents_settings,
             model: AppModel {
                 library,

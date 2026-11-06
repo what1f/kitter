@@ -223,7 +223,9 @@ impl KitterApp {
                             .child(appearance_group)
                             .child(kit::section_title(t!("settings.data").to_string()).mt(px(32.)))
                             .child(library_group)
-                            .child(self.agent_settings(cx)),
+                            .child(self.agent_settings(cx))
+                            .child(kit::section_title(t!("settings.about").to_string()).mt(px(32.)))
+                            .child(self.about_group(cx)),
                     ),
             )
             .child(self.window_drag_strip("settings-window-drag", 20., cx))

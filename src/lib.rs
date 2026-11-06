@@ -4,6 +4,7 @@ rust_i18n::i18n!("locales", fallback = "en");
 pub mod adoption;
 pub mod agent_plugins;
 pub mod agents;
+pub mod app_update;
 pub mod config;
 pub mod data_location;
 mod directory_link;
