@@ -2247,7 +2247,12 @@ fn manage_presets(library: &SkillLibrary, action: PresetAction) -> Result<()> {
                     .map(|preset| preset.id.clone())
                     .collect(),
             };
-            let project = project.as_deref().map(canonical_project).transpose()?;
+            // Presets store Windows paths without the `\\?\` prefix that canonicalize adds.
+            let project = project
+                .as_deref()
+                .map(canonical_project)
+                .transpose()?
+                .map(|path| dunce::simplified(&path).to_path_buf());
             let skills = library.list()?;
             let mut synced = 0usize;
             let mut failures = Vec::new();
