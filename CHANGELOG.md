@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.6 — 2026-11-10
+
+- The macOS app is now signed and notarized by Apple, so macOS opens it without a security warning.
+
+[Full changelog](https://github.com/what1f/kitter/compare/v0.2.5...v0.2.6)
+
 ## v0.2.5 — 2026-11-10
 
 - Added an About section in Settings with the version, the changelog, and a button that updates Kitter in place.
