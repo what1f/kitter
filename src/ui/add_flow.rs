@@ -99,7 +99,7 @@ impl KitterApp {
             });
         let mut form =
             kit::form().child(kit::field(p, t!("add.source").to_string(), source_control));
-        if self.add_flow.selected.len() > 1 && self.add_flow.kind != AddKind::Existing {
+        if !self.add_flow.selected.is_empty() && self.add_flow.kind != AddKind::Existing {
             form = form.child(self.add_group_control(cx));
         }
         if self.add_flow.kind == AddKind::Existing {

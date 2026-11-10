@@ -267,6 +267,7 @@ errors:
   preset_name_required: "Enter a preset name"
   preset_not_found: "Preset not found: %{name}"
   preset_not_installed: "Preset is not installed in this project: %{path}"
+  preset_global_without_skills: "This preset has no skills. Instruction files can only be installed into a project."
   presets_invalid: "Invalid preset format"
   presets_read_failed: "Could not read presets: %{path}"
   project_missing: "Project folder does not exist: %{path}"

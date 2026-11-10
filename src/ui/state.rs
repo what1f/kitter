@@ -85,6 +85,8 @@ pub(super) struct SkillsState {
     pub list_rows: RefCell<Arc<[super::skills_page::SkillListRow]>>,
     pub selectable_text_handles: RefCell<BTreeMap<String, TextSelectionHandle>>,
     pub collapsed_groups: HashSet<String>,
+    /// Groups collapsed while a search or tag filter is active, keyed by that filter.
+    pub filter_collapsed_groups: (String, HashSet<String>),
     pub known_groups: HashSet<String>,
     pub collapsed_content_directories: HashSet<PathBuf>,
 }
@@ -124,6 +126,8 @@ pub(super) struct AddFlowState {
     pub error: Option<String>,
     pub group_enabled: bool,
     pub group_name: Option<String>,
+    /// A single skill joins no group unless the user picks one.
+    pub group_chosen: bool,
     pub local_mode: crate::LocalInstallMode,
     pub primary_input: Entity<InputState>,
     pub source_select: Entity<SelectState<Vec<SourceChoice>>>,

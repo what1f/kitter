@@ -133,7 +133,7 @@ impl PresetStore {
     pub fn open_in(data_dir: impl Into<PathBuf>) -> Result<Self> {
         let data_dir = data_dir.into();
         let path = data_dir.join("presets.json");
-        let document = if path.exists() {
+        let mut document: PresetDocument = if path.exists() {
             let bytes = fs::read(&path).with_context(|| {
                 t!("errors.presets_read_failed", path = path.display()).to_string()
             })?;
@@ -141,6 +141,10 @@ impl PresetStore {
         } else {
             PresetDocument::default()
         };
+        // Older versions stored Windows paths with the `\\?\` prefix.
+        for installation in &mut document.installations {
+            installation.project = dunce::simplified(&installation.project).to_path_buf();
+        }
         Ok(Self { data_dir, document })
     }
 
@@ -353,6 +357,10 @@ impl PresetStore {
             crate::user_bail!("errors.project_missing", path = project.display());
         }
         self.check_file_decisions(id, project, decisions)?;
+        // Global installs only link skills; instruction files belong to projects.
+        if is_home(project) && self.preset(id)?.skills.is_empty() {
+            crate::user_bail!("errors.preset_global_without_skills");
+        }
         let project = project_key(project);
         let project = project.as_path();
         match self
@@ -801,9 +809,7 @@ fn is_linked(project: &Path, target: &InstallTarget, skill: &SkillSummary) -> bo
 /// Projects are matched by their resolved path so the CLI and the desktop app
 /// agree on the same folder however it was chosen.
 fn project_key(project: &Path) -> PathBuf {
-    project
-        .canonicalize()
-        .unwrap_or_else(|_| project.to_path_buf())
+    dunce::canonicalize(project).unwrap_or_else(|_| project.to_path_buf())
 }
 
 fn is_home(project: &Path) -> bool {

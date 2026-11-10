@@ -980,11 +980,7 @@ impl KitterApp {
             this.assign_skills_group(drag.skills.clone(), Some(drop_group_id.clone()), cx);
         }))
         .on_click(cx.listener(move |this, _, _, cx| {
-            if !this.skills_view.collapsed_groups.remove(&toggle_key) {
-                this.skills_view.collapsed_groups.insert(toggle_key.clone());
-            }
-            this.persist_collapsed_groups();
-            cx.notify();
+            this.toggle_skill_group_collapsed(&toggle_key, cx);
         }))
         .context_menu(move |menu, window, menu_cx| {
             let install_app = context_app.clone();
@@ -1174,6 +1170,54 @@ impl KitterApp {
         Arc::clone(&previous)
     }
 
+    /// `None` when the list is unfiltered; otherwise identifies the current search and tag filter.
+    fn skill_filter_key(&self, cx: &App) -> Option<String> {
+        let query = self
+            .skills_view
+            .skill_search
+            .read(cx)
+            .value()
+            .trim()
+            .to_lowercase();
+        let tag = self.tags_flow.selected_skill_filter;
+        (!query.is_empty() || tag.is_some()).then(|| format!("{query}\0{tag:?}"))
+    }
+
+    /// Filtered lists start fully expanded so matches are never hidden, but groups can still be
+    /// collapsed until the filter changes.
+    fn skill_group_collapsed(&self, group_id: &str, filter_key: Option<&str>) -> bool {
+        match filter_key {
+            None => self.skills_view.collapsed_groups.contains(group_id),
+            Some(key) => {
+                let (stored_key, groups) = &self.skills_view.filter_collapsed_groups;
+                stored_key == key && groups.contains(group_id)
+            }
+        }
+    }
+
+    fn toggle_skill_group_collapsed(&mut self, group_id: &str, cx: &mut Context<Self>) {
+        match self.skill_filter_key(cx) {
+            None => {
+                let groups = &mut self.skills_view.collapsed_groups;
+                if !groups.remove(group_id) {
+                    groups.insert(group_id.to_string());
+                }
+                self.persist_collapsed_groups();
+            }
+            Some(key) => {
+                let (stored_key, groups) = &mut self.skills_view.filter_collapsed_groups;
+                if *stored_key != key {
+                    *stored_key = key;
+                    groups.clear();
+                }
+                if !groups.remove(group_id) {
+                    groups.insert(group_id.to_string());
+                }
+            }
+        }
+        cx.notify();
+    }
+
     pub(super) fn skills_page(&self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let p = self.palette();
         let query = self
@@ -1199,6 +1243,7 @@ impl KitterApp {
             .collect::<Vec<_>>();
         let visible_count = visible_skills.len();
         let filtered = !query.is_empty() || self.tags_flow.selected_skill_filter.is_some();
+        let filter_key = self.skill_filter_key(cx);
         let configured_groups = self.model.library.groups();
         let group_ids = configured_groups
             .iter()
@@ -1242,7 +1287,7 @@ impl KitterApp {
                 .map(|skill| skill_storage_name(skill).to_string()),
         );
         for group in &configured_groups {
-            let collapsed = !filtered && self.skills_view.collapsed_groups.contains(&group.id);
+            let collapsed = self.skill_group_collapsed(&group.id, filter_key.as_deref());
             if !collapsed {
                 if let Some(skills) = grouped.get(&group.id) {
                     selection_order.extend(
@@ -1378,7 +1423,7 @@ impl KitterApp {
             if filtered && grouped.get(&group.id).is_none_or(Vec::is_empty) {
                 continue;
             }
-            let collapsed = !filtered && self.skills_view.collapsed_groups.contains(&group.id);
+            let collapsed = self.skill_group_collapsed(&group.id, filter_key.as_deref());
             flat_rows.push(SkillListRow::Group(index, collapsed));
             if !collapsed && let Some(skills) = grouped.get(&group.id) {
                 flat_rows.extend(skills.iter().map(|skill| {
@@ -1938,13 +1983,7 @@ impl KitterApp {
                     .when(skill.manual_only, |title| {
                         title.child(self.manual_skill_badge())
                     }),
-                self.selectable_text(
-                    "skill-detail-origin",
-                    101,
-                    self.source_label(&skill.record.origin),
-                    window,
-                    cx,
-                ),
+                self.skill_origin_label(skill, window, cx),
                 actions,
             ))
             .child(description_section)
@@ -1977,6 +2016,42 @@ impl KitterApp {
                 self.content_tab(skill, window, cx)
             })
             .child(self.window_drag_strip("skill-detail-window-drag", 24., cx))
+    }
+
+    /// Repository sources open in the browser and local sources in the file manager.
+    fn skill_origin_label(
+        &self,
+        skill: &SkillSummary,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let label = self.source_label(&skill.record.origin);
+        let url = skill.record.origin.source().web_url();
+        let local = match &skill.record.origin {
+            crate::SkillOrigin::Local { path, .. } => Some(path.clone()),
+            _ => None,
+        };
+        if url.is_none() && local.is_none() {
+            return self
+                .selectable_text("skill-detail-origin", 101, label, window, cx)
+                .into_any_element();
+        }
+        let p = self.palette();
+        div()
+            .id("skill-detail-origin")
+            .debug_selector(|| "skill-detail-origin".into())
+            .truncate()
+            .cursor_pointer()
+            .hover(move |style| style.text_color(p.secondary).underline())
+            .child(label)
+            .on_click(move |_, _, cx| {
+                if let Some(url) = &url {
+                    cx.open_url(url);
+                } else if let Some(path) = &local {
+                    cx.reveal_path(path);
+                }
+            })
+            .into_any_element()
     }
 
     pub(super) fn tab_button(

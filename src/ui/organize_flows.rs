@@ -801,6 +801,17 @@ impl KitterApp {
             )
     }
 
+    /// Several skills default to the source's group; a single skill only joins one the user picked.
+    fn add_group_applies(&self) -> bool {
+        self.add_flow.selected.len() > 1 || self.add_flow.group_chosen
+    }
+
+    pub(super) fn add_group_name(&self) -> Option<String> {
+        (self.add_flow.group_enabled && self.add_group_applies())
+            .then(|| self.add_flow.group_name.clone())
+            .flatten()
+    }
+
     pub(super) fn add_group_control(&self, cx: &mut Context<Self>) -> AnyElement {
         let p = self.palette();
         if self.groups_flow.edit == Some(GroupEdit::Create) {
@@ -816,19 +827,14 @@ impl KitterApp {
         }
         let app = cx.entity().downgrade();
         let groups = self.model.library.groups();
-        let current = if self.add_flow.group_enabled {
-            self.add_flow
-                .group_name
+        let selected_group = self.add_group_name();
+        let current = if self.add_flow.group_enabled && self.add_group_applies() {
+            selected_group
                 .clone()
                 .unwrap_or_else(|| t!("organize.choose_group").to_string())
         } else {
             t!("organize.no_group").to_string()
         };
-        let selected_group = self
-            .add_flow
-            .group_enabled
-            .then(|| self.add_flow.group_name.clone())
-            .flatten();
         let mut group_options = groups
             .iter()
             .map(|group| group.name.clone())
@@ -866,6 +872,7 @@ impl KitterApp {
                                 return;
                             }
                             this.add_flow.group_enabled = false;
+                            this.add_flow.group_chosen = true;
                             this.notify_dialog(cx);
                         });
                         cx.emit(DismissEvent);
@@ -888,6 +895,7 @@ impl KitterApp {
                                         return;
                                     }
                                     this.add_flow.group_enabled = true;
+                                    this.add_flow.group_chosen = true;
                                     this.add_flow.group_name = Some(group_name.clone());
                                     this.notify_dialog(cx);
                                 });

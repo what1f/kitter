@@ -1,14 +1,24 @@
 use super::*;
 
 impl KitterApp {
+    /// A preset without skills has nothing to install globally.
+    pub(super) fn install_flow_allows_global(&self) -> bool {
+        self.install_flow
+            .preset
+            .as_deref()
+            .and_then(|id| self.presets_view.store.preset(id).ok())
+            .is_none_or(|preset| !preset.skills.is_empty())
+    }
+
     pub(super) fn install_modal(&self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         if self.install_flow.pending.is_some() {
             return self.install_replace_modal(cx);
         }
         let p = self.palette();
+        let global_allowed = self.install_flow_allows_global();
         let has_target = !self.install_flow.selected_targets.is_empty()
             && if self.install_flow.global {
-                dirs::home_dir().is_some()
+                global_allowed && dirs::home_dir().is_some()
             } else {
                 self.projects_view.open_project.is_some()
             };
@@ -49,6 +59,7 @@ impl KitterApp {
         let home = dirs::home_dir();
         let project_choices = home
             .iter()
+            .filter(|_| global_allowed)
             .cloned()
             .map(|path| (true, path))
             .chain(

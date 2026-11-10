@@ -13,6 +13,7 @@ impl KitterApp {
         self.add_flow.selected.clear();
         self.add_flow.error = None;
         self.add_flow.group_enabled = true;
+        self.add_flow.group_chosen = false;
         self.add_flow.group_name = None;
         let placeholder = match self.add_flow.kind {
             AddKind::Claude => t!("add.plugin_placeholder").to_string(),
@@ -56,6 +57,7 @@ impl KitterApp {
         self.add_flow.selected.clear();
         self.add_flow.error = None;
         self.add_flow.group_enabled = true;
+        self.add_flow.group_chosen = false;
         self.add_flow.group_name = None;
         self.notify_dialog(cx);
     }
@@ -237,9 +239,7 @@ impl KitterApp {
             return;
         };
         let selected = self.add_flow.selected.clone();
-        let group_name = (self.add_flow.selected.len() > 1 && self.add_flow.group_enabled)
-            .then(|| self.add_flow.group_name.clone())
-            .flatten();
+        let group_name = self.add_group_name();
         let local_mode = self.add_flow.local_mode;
         let data_dir = self.model.library.data_dir().to_path_buf();
         self.add_flow.task = Some(AddTask::Importing);

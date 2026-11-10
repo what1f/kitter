@@ -265,6 +265,25 @@ struct SkillDrag {
     skills: Vec<String>,
 }
 
+/// A file or folder dragged inside a preset's instruction tree.
+#[derive(Clone)]
+struct PresetFileDrag {
+    path: PathBuf,
+    directory: bool,
+}
+
+impl Render for PresetFileDrag {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let name = self
+            .path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
+        kit::drag_preview(cx, name, false)
+    }
+}
+
 impl Render for SkillDrag {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         kit::drag_preview(cx, self.name.clone(), self.skills.len() > 1)
@@ -717,6 +736,7 @@ impl KitterApp {
                 this.add_flow.selected.clear();
                 this.add_flow.error = None;
                 this.add_flow.group_enabled = true;
+                this.add_flow.group_chosen = false;
                 this.add_flow.group_name = None;
                 this.notify_dialog(cx);
             },
@@ -829,6 +849,7 @@ impl KitterApp {
                 selectable_text_handles: RefCell::new(BTreeMap::new()),
                 known_groups,
                 collapsed_groups,
+                filter_collapsed_groups: (String::new(), HashSet::new()),
                 collapsed_content_directories: HashSet::new(),
             },
             projects_view: ProjectsState {
@@ -864,6 +885,7 @@ impl KitterApp {
                 selected: HashSet::new(),
                 error: None,
                 group_enabled: true,
+                group_chosen: false,
                 local_mode: crate::LocalInstallMode::Link,
                 group_name: None,
                 primary_input: add_primary_input,

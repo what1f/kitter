@@ -440,23 +440,73 @@ impl KitterApp {
         ) {
             let path = entry.path;
             if entry.directory {
-                tree = tree.child(entry.row.on_click(cx.listener(move |this, _, _, cx| {
-                    let collapsed = &mut this.presets_view.collapsed_dirs;
-                    if !collapsed.remove(&path) {
-                        collapsed.insert(path.clone());
-                    }
-                    cx.notify();
-                })));
+                let toggle_path = path.clone();
+                let (drop_id, drop_dir) = (preset.id.clone(), path.clone());
+                let (import_id, import_dir) = (preset.id.clone(), path.clone());
+                let row = entry
+                    .row
+                    .on_drag(
+                        PresetFileDrag {
+                            path: path.clone(),
+                            directory: true,
+                        },
+                        |drag, _, _, cx| cx.new(|_| drag.clone()),
+                    )
+                    .drag_over::<PresetFileDrag>(move |row, _, _, _| row.drop_fill(p))
+                    .on_drop(cx.listener(move |this, drag: &PresetFileDrag, _, cx| {
+                        this.move_preset_entry(drop_id.clone(), drag, &drop_dir, cx);
+                    }))
+                    .drag_over::<ExternalPaths>(move |row, _, _, _| row.drop_fill(p))
+                    .on_drop(cx.listener(move |this, paths: &ExternalPaths, _, cx| {
+                        this.add_dropped_preset_files(
+                            import_id.clone(),
+                            paths.paths(),
+                            &import_dir,
+                            cx,
+                        );
+                    }))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        let collapsed = &mut this.presets_view.collapsed_dirs;
+                        if !collapsed.remove(&toggle_path) {
+                            collapsed.insert(toggle_path.clone());
+                        }
+                        cx.notify();
+                    }));
+                tree = tree.child(row);
                 continue;
             }
             let select_path = path.clone();
-            let row = entry.row.on_click(cx.listener(move |this, _, _, cx| {
-                this.select_preset_file(select_path.clone(), cx);
-            }));
+            // Dropping onto a file lands in the folder that holds it.
+            let parent = path.parent().map(Path::to_path_buf).unwrap_or_default();
+            let (drop_id, drop_dir) = (preset.id.clone(), parent.clone());
+            let (import_id, import_dir) = (preset.id.clone(), parent);
+            let row = entry
+                .row
+                .on_drop(cx.listener(move |this, drag: &PresetFileDrag, _, cx| {
+                    this.move_preset_entry(drop_id.clone(), drag, &drop_dir, cx);
+                }))
+                .on_drop(cx.listener(move |this, paths: &ExternalPaths, _, cx| {
+                    this.add_dropped_preset_files(
+                        import_id.clone(),
+                        paths.paths(),
+                        &import_dir,
+                        cx,
+                    );
+                }))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.select_preset_file(select_path.clone(), cx);
+                }));
             if path == Path::new("AGENTS.md") {
                 tree = tree.child(row);
                 continue;
             }
+            let row = row.on_drag(
+                PresetFileDrag {
+                    path: path.clone(),
+                    directory: false,
+                },
+                |drag, _, _, cx| cx.new(|_| drag.clone()),
+            );
             let app = cx.entity().downgrade();
             let id = preset.id.clone();
             let danger = p.danger;
@@ -492,13 +542,17 @@ impl KitterApp {
             }));
         }
         let drop_id = preset.id.clone();
+        let move_id = preset.id.clone();
         let tree_panel = kit::pane(p)
             .id("preset-files-panel")
             .relative()
             .w(px(220.))
             .drag_over::<ExternalPaths>(move |panel, _, _, _| panel.drop_fill(p))
             .on_drop(cx.listener(move |this, paths: &ExternalPaths, _, cx| {
-                this.add_dropped_preset_files(drop_id.clone(), paths.paths(), cx);
+                this.add_dropped_preset_files(drop_id.clone(), paths.paths(), Path::new(""), cx);
+            }))
+            .on_drop(cx.listener(move |this, drag: &PresetFileDrag, _, cx| {
+                this.move_preset_entry(move_id.clone(), drag, Path::new(""), cx);
             }))
             .child(
                 div()

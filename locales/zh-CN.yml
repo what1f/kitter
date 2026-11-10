@@ -267,6 +267,7 @@ errors:
   preset_name_required: "请输入预设名称"
   preset_not_found: "没有找到预设：%{name}"
   preset_not_installed: "预设未安装到这个项目：%{path}"
+  preset_global_without_skills: "预设里没有技能，指令文件只能安装到项目"
   presets_invalid: "预设格式无效"
   presets_read_failed: "读取预设失败：%{path}"
   project_missing: "项目文件夹不存在：%{path}"

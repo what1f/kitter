@@ -206,6 +206,7 @@ impl KitterApp {
                     .is_some_and(|body| matches!(body.read(cx).kind, DialogKind::Add))
                 {
                     self.add_flow.group_enabled = true;
+                    self.add_flow.group_chosen = true;
                     self.add_flow.group_name = Some(name);
                 }
                 self.groups_flow.edit = None;

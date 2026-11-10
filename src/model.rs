@@ -112,6 +112,15 @@ impl SkillSource {
         }
     }
 
+    pub fn web_url(&self) -> Option<String> {
+        match self {
+            Self::Npx { repository } | Self::Git { repository, .. } => {
+                repository_web_url(repository)
+            }
+            _ => None,
+        }
+    }
+
     pub fn label(&self) -> String {
         match self {
             Self::Builtin => "Kitter".into(),
@@ -127,6 +136,26 @@ impl SkillSource {
             Self::Unknown => t!("sources.local_skill").to_string().into(),
         }
     }
+}
+
+/// Browser address of a git repository, accepting URLs, scp-style remotes and `owner/repo`.
+fn repository_web_url(repository: &str) -> Option<String> {
+    let value = repository
+        .trim()
+        .trim_end_matches('/')
+        .trim_end_matches(".git");
+    if value.starts_with("https://") || value.starts_with("http://") {
+        return Some(value.to_string());
+    }
+    if let Some((host, path)) = value
+        .strip_prefix("git@")
+        .and_then(|rest| rest.split_once(':'))
+    {
+        return Some(format!("https://{host}/{path}"));
+    }
+    let parts = value.split('/').collect::<Vec<_>>();
+    (parts.len() == 2 && !value.contains(':') && parts.iter().all(|part| !part.is_empty()))
+        .then(|| format!("https://github.com/{value}"))
 }
 
 fn repository_label(repository: &str) -> String {

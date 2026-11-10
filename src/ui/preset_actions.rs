@@ -274,10 +274,69 @@ impl KitterApp {
 
     /// Adds dropped files, or every file inside dropped folders, keeping the
     /// folder name as the first path component.
+    /// Move a file or folder of the preset into `target_dir` (empty for the root).
+    pub(super) fn move_preset_entry(
+        &mut self,
+        id: String,
+        drag: &PresetFileDrag,
+        target_dir: &Path,
+        cx: &mut Context<Self>,
+    ) {
+        let source = drag.path.as_path();
+        let Some(name) = source.file_name() else {
+            return;
+        };
+        if source.parent() == Some(target_dir) || (drag.directory && target_dir.starts_with(source))
+        {
+            return;
+        }
+        let destination = target_dir.join(name);
+        let moves = self
+            .preset_files(&id)
+            .into_iter()
+            .filter_map(|file| {
+                let to = if drag.directory {
+                    destination.join(file.strip_prefix(source).ok()?)
+                } else if file == source {
+                    destination.clone()
+                } else {
+                    return None;
+                };
+                Some((file, to))
+            })
+            .collect::<Vec<_>>();
+        if moves.iter().any(|(_, to)| self.preset_file_exists(&id, to)) {
+            self.show_notice(t!("presets.file_exists").to_string(), cx);
+            return;
+        }
+        self.save_preset_agents_md(cx);
+        let mut error = None;
+        for (from, to) in &moves {
+            match self.presets_view.store.rename_file(&id, from, to) {
+                Ok(()) => {
+                    if self.presets_view.selected_file == *from {
+                        self.presets_view.selected_file = to.clone();
+                    }
+                }
+                Err(failure) => {
+                    error.get_or_insert(failure);
+                }
+            }
+        }
+        *self.presets_view.agents_md_for.borrow_mut() = None;
+        self.presets_view.statuses.borrow_mut().clear();
+        if let Some(error) = error {
+            self.show_notice(self.error_message(error), cx);
+        }
+        self.refresh(cx);
+    }
+
+    /// Import dropped files or folders into `target_dir` (empty for the root).
     pub(super) fn add_dropped_preset_files(
         &mut self,
         id: String,
         paths: &[PathBuf],
+        target_dir: &Path,
         cx: &mut Context<Self>,
     ) {
         let mut added = None;
@@ -295,6 +354,8 @@ impl KitterApp {
                 let Ok(relative) = entry.path().strip_prefix(base) else {
                     continue;
                 };
+                let relative = target_dir.join(relative);
+                let relative = relative.as_path();
                 let result = std::fs::read(entry.path())
                     .map_err(anyhow::Error::from)
                     .and_then(|content| self.presets_view.store.write_file(&id, relative, content));
@@ -375,15 +436,27 @@ impl KitterApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let global = match &project {
-            Some(path) => dirs::home_dir().as_ref() == Some(path),
-            None => self.projects_view.global_project_view,
-        };
-        if let Some(path) = project.filter(|_| !global) {
+        let has_skills = self
+            .presets_view
+            .store
+            .preset(&id)
+            .is_ok_and(|preset| !preset.skills.is_empty());
+        let global = has_skills
+            && match &project {
+                Some(path) => dirs::home_dir().as_ref() == Some(path),
+                None => self.projects_view.global_project_view,
+            };
+        let home = dirs::home_dir();
+        if let Some(path) = project.filter(|path| home.as_ref() != Some(path)) {
             self.projects_view.open_project = Some(path);
         } else if self.projects_view.open_project.is_none() {
-            self.projects_view.open_project =
-                self.model.library.config.project_paths().first().cloned();
+            self.projects_view.open_project = self
+                .model
+                .library
+                .config
+                .project_paths()
+                .into_iter()
+                .find(|path| home.as_ref() != Some(path));
         }
         self.open_install_dialog(window, cx);
         self.install_flow.global = global;

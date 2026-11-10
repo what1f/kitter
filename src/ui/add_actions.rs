@@ -29,6 +29,7 @@ impl KitterApp {
         self.add_flow.selected.clear();
         self.add_flow.error = None;
         self.add_flow.group_enabled = true;
+        self.add_flow.group_chosen = false;
         self.notify_dialog(cx);
         cx.spawn(async move |this, cx| {
             let result = cx
@@ -308,6 +309,7 @@ impl KitterApp {
         self.add_flow.selected.clear();
         self.add_flow.error = None;
         self.add_flow.group_enabled = true;
+        self.add_flow.group_chosen = false;
         self.notify_dialog(cx);
         cx.spawn(async move |this, cx| {
             let result = cx

@@ -3556,6 +3556,7 @@ dependencies = [
  "anyhow",
  "clap",
  "dirs",
+ "dunce",
  "fix-path-env",
  "gpui",
  "gpui-base",
