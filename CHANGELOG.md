@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.5 — 2026-11-10
+
+- Added an About section in Settings with the version, the changelog, and a button that updates Kitter in place.
+- Added `kitter self-update`.
+- Click a skill's source to open its repository, or its folder for local skills.
+- Pick a group when adding a single skill.
+- Drop files onto a folder in a preset's instruction files, and drag files and folders to move them.
+- Groups can now be collapsed while searching or filtering by tag.
+- Presets without skills can no longer be installed globally.
+- Fixed preset project paths showing a `\\?\` prefix on Windows.
+
+[Full changelog](https://github.com/what1f/kitter/compare/v0.2.4...v0.2.5)
+
 ## v0.2.4 — 2026-11-04
 
 - Added themes. Pick a style in Settings, including the new Solid Glass style, or build your own theme package with colors, surfaces, fonts, sizes, and icons.
