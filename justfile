@@ -48,12 +48,12 @@ app: build
     plutil -replace CFBundleVersion -string "{{version}}" "{{app_dir}}/Contents/Info.plist"
     chmod +x "{{app_dir}}/Contents/MacOS/Kitter"
     xattr -cr "{{app_dir}}"
-    codesign --deep --force --sign - "{{app_dir}}"
-    codesign --verify --deep --strict "{{app_dir}}"
+    "{{root}}/scripts/sign-macos.sh" app "{{app_dir}}" "{{release_dir}}/kitter"
     @echo "App ready: {{app_dir}}"
 
 package: app
     "{{root}}/scripts/package-macos-dmg.sh" "{{app_dir}}" "{{dmg_background}}" "{{dmg}}"
+    "{{root}}/scripts/sign-macos.sh" dmg "{{dmg}}"
     @file "{{release_dir}}/kitter" "{{release_dir}}/kitter-desktop"
     @shasum -a 256 "{{dmg}}"
     @echo "Package ready: {{dmg}}"

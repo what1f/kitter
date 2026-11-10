@@ -95,7 +95,6 @@ export default defineAgent({
 从 [GitHub Releases](https://github.com/what1f/kitter/releases/latest) 下载适合您操作系统的桌面应用：
 
 - **macOS（Apple Silicon / Intel）** — Apple Silicon 选择 `macos-arm64.dmg`，Intel 选择 `macos-x86_64.dmg`，打开后将 `Kitter.app` 拖入 `Applications`。
-  *(如首次启动被 macOS 阻止，可前往 **系统设置 → 隐私与安全 → 仍要打开**，或在终端执行 `xattr -dr com.apple.quarantine /Applications/Kitter.app`)*
 - **Windows（x64）** — 下载 `Kitter-<version>-desktop-windows-x86_64.exe`，直接运行（静态链接 MSVC 运行库，无外部依赖）。
 - **Linux（x64）** — 解压 `Kitter-<version>-desktop-linux-x86_64.tar.gz`，进入解压后的目录运行 `./Kitter`。
 

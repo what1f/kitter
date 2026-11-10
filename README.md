@@ -95,7 +95,6 @@ A theme is a single JSON file, or a folder that also carries its own icons, font
 Download the prebuilt application from [GitHub Releases](https://github.com/what1f/kitter/releases/latest):
 
 - **macOS (Apple Silicon / Intel)** — choose `macos-arm64.dmg` (Apple Silicon) or `macos-x86_64.dmg` (Intel), open the `.dmg` and drag `Kitter.app` into `Applications`.
-  *(If macOS blocks first launch, confirm it was downloaded from the official release, then go to **System Settings → Privacy & Security → Open Anyway**, or run `xattr -dr com.apple.quarantine /Applications/Kitter.app`)*
 - **Windows (x64)** — download `Kitter-<version>-desktop-windows-x86_64.exe` and run it directly (statically linked MSVC runtime, zero dependencies).
 - **Linux (x64)** — extract `Kitter-<version>-desktop-linux-x86_64.tar.gz` and run `./Kitter` from the extracted directory.
 
