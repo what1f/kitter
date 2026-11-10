@@ -43,7 +43,6 @@ cli:
   update_available: "Kitter %{version} 已发布（当前 %{current}），运行 `kitter self-update` 安装"
   update_done: "已更新到 %{version}：%{path}"
   update_downloading: "正在下载… %{percent}%"
-  update_installing: "正在安装…"
   update_latest: "Kitter %{version} 已是最新版本"
   data_moved: "已将 Kitter 数据移到 %{path}"
   data_switched: "已切换到 %{path} 中的 Kitter 数据"

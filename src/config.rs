@@ -127,6 +127,10 @@ pub fn app_data_dir() -> PathBuf {
     if let Some(path) = std::env::var_os("KITTER_HOME") {
         return PathBuf::from(path);
     }
+    // Tests must not read or write the user's real library, agent plugins included.
+    if cfg!(test) {
+        return std::env::temp_dir().join(format!("kitter-test-{}", std::process::id()));
+    }
     if let Some(path) = data_dir_cache().read().unwrap().clone() {
         return path;
     }

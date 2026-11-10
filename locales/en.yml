@@ -43,7 +43,6 @@ cli:
   update_available: "Kitter %{version} is available (current: %{current}). Run `kitter self-update` to install it."
   update_done: "Updated to %{version}: %{path}"
   update_downloading: "Downloading… %{percent}%"
-  update_installing: "Installing…"
   update_latest: "Kitter %{version} is up to date"
   data_moved: "Moved Kitter data to %{path}"
   data_switched: "Now using the Kitter data in %{path}"

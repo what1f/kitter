@@ -2014,7 +2014,7 @@ fn update_self(check: bool, json: bool) -> Result<()> {
                     percent = (done * 100).checked_div(total).unwrap_or(0).min(100)
                 )
                 .to_string(),
-                Progress::Installing => t!("cli.update_installing").to_string(),
+                Progress::Installing => t!("settings.update_installing").to_string(),
             };
             if last.as_ref() != Some(&line) {
                 if std::io::stderr().is_terminal() {
